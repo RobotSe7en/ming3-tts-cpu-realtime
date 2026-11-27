@@ -1,0 +1,178 @@
+{
+  "complete": true,
+  "automated_screening_only": true,
+  "human_listening_performed": false,
+  "asr": {
+    "model_revision": "355f4d4884d8afd08aef04b9007a8556d7b463b2",
+    "model_sha256": "12ca1a2ae7ecf3e0019ef2822307ee0b5cadc9196569e379b4c4026f8205276d",
+    "tokens_sha256": "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc",
+    "threads": 4,
+    "language": "zh",
+    "use_itn": false,
+    "sherpa_onnx_version": "2.0.1"
+  },
+  "speaker": {
+    "model": "CAMPPlus packaged with the Ming GGUF",
+    "command": [
+      ".cache/bench-build/ming3_quality_embed",
+      "models/ming-3.0-tts-0.5b-q8_0.gguf",
+      "benchmarks/results/ming-fast-quality-20261126T145100Z/wav_paths.txt"
+    ],
+    "binary_sha256": "d2d2bbb2dba5b474855900c0fb118d1ccaa455e89f9ed663f871e6c71f43cfdc",
+    "threads": 4
+  },
+  "script_sha256": "0bb4a7a159d940a8fbccfe06ee9918f870ad7c8fd4a0cfa96f970b9db352ec59",
+  "cases": [
+    {
+      "comparison": "benchmarks/results/ming-fast-comparison-q4g64-ar_q4_0-vae_q4_0-s8-c1-t4-20261126T143150Z/comparison.json",
+      "wav": {
+        "reference": "benchmarks/results/ming3-q8-t4-20261126T143154Z/audio/run_1.wav",
+        "candidate": "benchmarks/results/ming3-q8-fast-t4-20261126T143221Z/audio/run_1.wav"
+      },
+      "text": "今天阳光很好，我们来测试一下中文语音合成的速度。",
+      "speaker_cosine": 0.7187390716235544,
+      "reference_cer": 0.0,
+      "candidate_cer": 0.0,
+      "cer_change": 0.0,
+      "review_flag": true
+    },
+    {
+      "comparison": "benchmarks/results/ming-fast-comparison-q4g64-ar_q4_0-vae_q4_0-s8-c1-t4-20261126T143453Z/comparison.json",
+      "wav": {
+        "reference": "benchmarks/results/ming3-q8-t4-20261126T143456Z/audio/run_1.wav",
+        "candidate": "benchmarks/results/ming3-q8-fast-t4-20261126T143712Z/audio/run_1.wav"
+      },
+      "text": "清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。",
+      "speaker_cosine": 0.508933090292338,
+      "reference_cer": 0.0625,
+      "candidate_cer": 0.020833333333333332,
+      "cer_change": -0.04166666666666667,
+      "review_flag": true
+    },
+    {
+      "comparison": "benchmarks/results/ming-fast-comparison-q4g128-ar_q4_0-vae_q4_0-s10-c1-t4-20261126T144115Z/comparison.json",
+      "wav": {
+        "reference": "benchmarks/results/ming3-q8-t4-20261126T144119Z/audio/run_1.wav",
+        "candidate": "benchmarks/results/ming3-q8-fast-t4-20261126T144146Z/audio/run_1.wav"
+      },
+      "text": "今天阳光很好，我们来测试一下中文语音合成的速度。",
+      "speaker_cosine": 0.7371331555139214,
+      "reference_cer": 0.0,
+      "candidate_cer": 0.0,
+      "cer_change": 0.0,
+      "review_flag": true
+    },
+    {
+      "comparison": "benchmarks/results/ming-fast-comparison-q4g128-ar_q4_0-vae_q4_0-s10-c1-t4-20261126T144426Z/comparison.json",
+      "wav": {
+        "reference": "benchmarks/results/ming3-q8-t4-20261126T144429Z/audio/run_1.wav",
+        "candidate": "benchmarks/results/ming3-q8-fast-t4-20261126T144646Z/audio/run_1.wav"
+      },
+      "text": "清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。",
+      "speaker_cosine": 0.6186772489000224,
+      "reference_cer": 0.0625,
+      "candidate_cer": 0.03125,
+      "cer_change": -0.03125,
+      "review_flag": true
+    }
+  ],
+  "audio": {
+    "benchmarks/results/ming3-q8-t4-20261126T143154Z/audio/run_1.wav": {
+      "text": "今天阳光很好，我们来测试一下中文语音合成的速度。",
+      "sha256": "4ae90a01ab9cd5402b309c98d53a13c51bc1e8f13da5623075d3e6697d94eee1",
+      "transcript": "今天阳光很好我们来测试一下中文语音合成的速度",
+      "normalized_reference": "今天阳光很好我们来测试一下中文语音合成的速度",
+      "normalized_hypothesis": "今天阳光很好我们来测试一下中文语音合成的速度",
+      "edit_distance": 0,
+      "cer": 0.0,
+      "duration_s": 4.0,
+      "rms_dbfs": -17.79630729397062,
+      "clipping_fraction": 0.0
+    },
+    "benchmarks/results/ming3-q8-fast-t4-20261126T143221Z/audio/run_1.wav": {
+      "text": "今天阳光很好，我们来测试一下中文语音合成的速度。",
+      "sha256": "5349cea6301c2deecb6aa8333f36ca49ec337819648b1253455e069a57fa9660",
+      "transcript": "今天阳光很好我们来测试一下中文语音合成的速度",
+      "normalized_reference": "今天阳光很好我们来测试一下中文语音合成的速度",
+      "normalized_hypothesis": "今天阳光很好我们来测试一下中文语音合成的速度",
+      "edit_distance": 0,
+      "cer": 0.0,
+      "duration_s": 3.8,
+      "rms_dbfs": -16.42764223297016,
+      "clipping_fraction": 0.0
+    },
+    "benchmarks/results/ming3-q8-t4-20261126T143456Z/audio/run_1.wav": {
+      "text": "清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。",
+      "sha256": "1013d0f30152611cde6dec2b3e7f60bb96db2ea3eac06d4621cf2d7bf7b2bef0",
+      "transcript": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完一些句标处适当停并保持前后音一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
+      "normalized_reference": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在标点处适当停顿并保持前后音色一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
+      "normalized_hypothesis": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完一些句标处适当停并保持前后音一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
+      "edit_distance": 6,
+      "cer": 0.0625,
+      "duration_s": 22.1,
+      "rms_dbfs": -19.014219583263646,
+      "clipping_fraction": 0.00011183960763792697
+    },
+    "benchmarks/results/ming3-q8-fast-t4-20261126T143712Z/audio/run_1.wav": {
+      "text": "清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。",
+      "sha256": "40fd162f6227ebeca5a8818dd467a4fa4f468d3944d0958590c4fba61dbfaeb5",
+      "transcript": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在在标点处适当停顿并保持前后音色一切测试结束后我们会比较原版与优化版的生成速度和音频内容",
+      "normalized_reference": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在标点处适当停顿并保持前后音色一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
+      "normalized_hypothesis": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在在标点处适当停顿并保持前后音色一切测试结束后我们会比较原版与优化版的生成速度和音频内容",
+      "edit_distance": 2,
+      "cer": 0.020833333333333332,
+      "duration_s": 18.5,
+      "rms_dbfs": -18.74698679599678,
+      "clipping_fraction": 0.0
+    },
+    "benchmarks/results/ming3-q8-t4-20261126T144119Z/audio/run_1.wav": {
+      "text": "今天阳光很好，我们来测试一下中文语音合成的速度。",
+      "sha256": "4ae90a01ab9cd5402b309c98d53a13c51bc1e8f13da5623075d3e6697d94eee1",
+      "transcript": "今天阳光很好我们来测试一下中文语音合成的速度",
+      "normalized_reference": "今天阳光很好我们来测试一下中文语音合成的速度",
+      "normalized_hypothesis": "今天阳光很好我们来测试一下中文语音合成的速度",
+      "edit_distance": 0,
+      "cer": 0.0,
+      "duration_s": 4.0,
+      "rms_dbfs": -17.79630729397062,
+      "clipping_fraction": 0.0
+    },
+    "benchmarks/results/ming3-q8-fast-t4-20261126T144146Z/audio/run_1.wav": {
+      "text": "今天阳光很好，我们来测试一下中文语音合成的速度。",
+      "sha256": "88b7d2bbdb01068a3fab535c2d8fd98dac5bf5ec846e1cd32f7261a2ceb4d2d3",
+      "transcript": "今天阳光很好我们来测试一下中文语音合成的速度",
+      "normalized_reference": "今天阳光很好我们来测试一下中文语音合成的速度",
+      "normalized_hypothesis": "今天阳光很好我们来测试一下中文语音合成的速度",
+      "edit_distance": 0,
+      "cer": 0.0,
+      "duration_s": 3.6,
+      "rms_dbfs": -16.304496004316146,
+      "clipping_fraction": 0.0
+    },
+    "benchmarks/results/ming3-q8-t4-20261126T144429Z/audio/run_1.wav": {
+      "text": "清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。",
+      "sha256": "1013d0f30152611cde6dec2b3e7f60bb96db2ea3eac06d4621cf2d7bf7b2bef0",
+      "transcript": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完一些句标处适当停并保持前后音一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
+      "normalized_reference": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在标点处适当停顿并保持前后音色一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
+      "normalized_hypothesis": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完一些句标处适当停并保持前后音一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
+      "edit_distance": 6,
+      "cer": 0.0625,
+      "duration_s": 22.1,
+      "rms_dbfs": -19.014219583263646,
+      "clipping_fraction": 0.00011183960763792697
+    },
+    "benchmarks/results/ming3-q8-fast-t4-20261126T144646Z/audio/run_1.wav": {
+      "text": "清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。",
+      "sha256": "435f4766545a9ea7db493862570bbc588c68de5fd339a7308ee910e460517da4",
+      "transcript": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在标点处适当停顿并保持前后音素离止测试结束后我们会比较原版与优化版的生成速度和音频内容",
+      "normalized_reference": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在标点处适当停顿并保持前后音色一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
+      "normalized_hypothesis": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在标点处适当停顿并保持前后音素离止测试结束后我们会比较原版与优化版的生成速度和音频内容",
+      "edit_distance": 3,
+      "cer": 0.03125,
+      "duration_s": 15.8,
+      "rms_dbfs": -15.935498434207659,
+      "clipping_fraction": 5.740692901633227e-06
+    }
+  },
+  "review_flag_definition": "CER increases more than 0.03 or CAMPPlus cosine below 0.90; heuristic only"
+}

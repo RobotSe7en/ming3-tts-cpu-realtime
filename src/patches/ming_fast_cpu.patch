@@ -1,0 +1,658 @@
+diff --git a/src/framework/audio/detail/speech_fft_internal.h b/src/framework/audio/detail/speech_fft_internal.h
+index 961267c..cfef839 100644
+--- a/src/framework/audio/detail/speech_fft_internal.h
++++ b/src/framework/audio/detail/speech_fft_internal.h
+@@ -691,8 +691,13 @@ struct util // hack to avoid duplicate symbols
+     size_t parallel = size / (shape[axis] * vlen);
+     if (shape[axis] < 1000)
+       parallel /= 4;
++#ifdef ENGINE_SPEECHFFT_MAX_THREADS
++    size_t max_threads = nthreads == 0 ? ENGINE_SPEECHFFT_MAX_THREADS :
++      std::min(nthreads, size_t(ENGINE_SPEECHFFT_MAX_THREADS));
++#else
+     size_t max_threads = nthreads == 0 ?
+       std::thread::hardware_concurrency() : nthreads;
++#endif
+     return std::max(size_t(1), std::min(parallel, max_threads));
+     }
+ #endif
+@@ -721,7 +726,11 @@ inline size_t &num_threads()
+   static thread_local size_t num_threads_=1;
+   return num_threads_;
+   }
++#ifdef ENGINE_SPEECHFFT_MAX_THREADS
++static const size_t max_threads = ENGINE_SPEECHFFT_MAX_THREADS;
++#else
+ static const size_t max_threads = std::max(1u, std::thread::hardware_concurrency());
++#endif
+ 
+ class latch
+   {
+diff --git a/src/framework/codecs/ming_audio_vae_runtime.cpp b/src/framework/codecs/ming_audio_vae_runtime.cpp
+index 7439fa5..200b295 100644
+--- a/src/framework/codecs/ming_audio_vae_runtime.cpp
++++ b/src/framework/codecs/ming_audio_vae_runtime.cpp
+@@ -8,7 +8,17 @@
+ #include "engine/framework/modules/primitive_modules.h"
+ #include "engine/framework/modules/structural_modules.h"
+ #include "engine/framework/modules/transformers/causal_decoder.h"
++#include "engine/framework/modules/packed_linear_weights.h"
+ #include "engine/framework/modules/weight_binding.h"
++#include "repack_weights.h"
++#ifdef TTS_MING_PROFILE
++#include "tts_stage_timer.h"
++#define MING_VAE_SCOPE(stage, name) tts_profile::Scope name(tts_profile::Stage::stage)
++#define MING_VAE_MEASURE(stage, expr) tts_profile::measure(tts_profile::Stage::stage, [&] { return (expr); })
++#else
++#define MING_VAE_SCOPE(stage, name)
++#define MING_VAE_MEASURE(stage, expr) (expr)
++#endif
+ 
+ #include <ggml-alloc.h>
+ 
+@@ -23,10 +33,11 @@ namespace engine::modules {
+ 
+ namespace {
+ 
+-void load_audio_backbone(core::BackendWeightStore & store, const assets::TensorSource & source,
++void load_audio_backbone(core::BackendWeightStore & store, core::BackendWeightStore * repack_store,
++    const assets::TensorSource & source,
+     const MingBackboneConfig & backbone, const std::string & prefix, core::ExecutionContext & execution,
+     core::AttentionPreference attention, bool bf16_residual, modules::DecoderHiddenConfig & config,
+-    modules::DecoderHiddenWeights & weights, int64_t layers = -1) {
++    modules::DecoderHiddenWeights & weights, ming_cpu::LayerWeightQuant quant, int64_t layers = -1) {
+     namespace binding = modules::binding;
+     auto & c = config.stack;
+     c.hidden_size = backbone.hidden_size;
+@@ -38,24 +49,29 @@ void load_audio_backbone(core::BackendWeightStore & store, const assets::TensorS
+     c.rms_norm_eps = backbone.rms_norm_eps;
+     c.rope_theta = backbone.rope_theta;
+     c.use_qk_norm = false;
++    c.qkv_layout = modules::DecoderQKVLayout::PackedQKV;
++    c.runtime.mlp.mode = modules::DecoderMLPMode::PackedGateUp;
+     c.runtime.attention.allow_flash_attention = core::resolve_flash_attention(execution.backend(), c.head_dim, attention);
+     c.runtime.attention.prefill_mode = c.runtime.attention.allow_flash_attention
+         ? modules::DecoderAttentionMode::FlashGroupedViewKV : modules::DecoderAttentionMode::ManualRepeat;
+-    c.activation_cast.enabled = true;
+-    c.activation_cast.after_input_norm = true;
+-    c.activation_cast.after_qkv_projection = true;
+-    c.activation_cast.after_rope = true;
+-    c.activation_cast.after_attention = true;
+-    c.activation_cast.after_attention_output = true;
+-    c.activation_cast.after_ffn_norm = true;
+-    c.activation_cast.after_mlp_projection = true;
+-    c.activation_cast.after_mlp_silu = true;
+-    c.activation_cast.after_mlp_mul = true;
+-    c.activation_cast.after_residual = bf16_residual;
+-    c.activation_cast.after_output = bf16_residual;
+-    if (bf16_residual) {
+-        c.activation_cast.norm_intermediate_type = GGML_TYPE_BF16;
+-        c.activation_cast.rope_intermediate_type = GGML_TYPE_BF16;
++    const bool keep_bf16_cast = !ming_cpu::fused_fp32_act_enabled(quant);
++    c.activation_cast.enabled = keep_bf16_cast;
++    if (keep_bf16_cast) {
++        c.activation_cast.after_input_norm = true;
++        c.activation_cast.after_qkv_projection = true;
++        c.activation_cast.after_rope = true;
++        c.activation_cast.after_attention = true;
++        c.activation_cast.after_attention_output = true;
++        c.activation_cast.after_ffn_norm = true;
++        c.activation_cast.after_mlp_projection = true;
++        c.activation_cast.after_mlp_silu = true;
++        c.activation_cast.after_mlp_mul = true;
++        c.activation_cast.after_residual = bf16_residual;
++        c.activation_cast.after_output = bf16_residual;
++        if (bf16_residual) {
++            c.activation_cast.norm_intermediate_type = GGML_TYPE_BF16;
++            c.activation_cast.rope_intermediate_type = GGML_TYPE_BF16;
++        }
+     }
+     config.hidden_mode = modules::CausalDecoderLogitsMode::AllSteps;
+     std::vector<float> inverse_frequency(c.head_dim / 2);
+@@ -73,23 +89,23 @@ void load_audio_backbone(core::BackendWeightStore & store, const assets::TensorS
+         layer.input_norm = binding::norm_weight_from_source(store, source, p + ".input_layernorm", c.hidden_size);
+         layer.post_norm = binding::norm_weight_from_source(store, source, p + ".post_attention_layernorm", c.hidden_size);
+         auto & a = layer.self_attention;
+-        const auto q = binding::linear_from_source(store, source, p + ".self_attn.q_proj",
+-            assets::TensorStorageType::Native, c.hidden_size, c.hidden_size, true);
+-        const auto k = binding::linear_from_source(store, source, p + ".self_attn.k_proj",
+-            assets::TensorStorageType::Native, c.num_key_value_heads * c.head_dim, c.hidden_size, true);
+-        const auto v = binding::linear_from_source(store, source, p + ".self_attn.v_proj",
+-            assets::TensorStorageType::Native, c.num_key_value_heads * c.head_dim, c.hidden_size, true);
+-        a.q_weight = q.weight; a.q_bias = q.bias;
+-        a.k_weight = k.weight; a.k_bias = k.bias;
+-        a.v_weight = v.weight; a.v_bias = v.bias;
+-        a.out_weight = store.load_tensor(source, p + ".self_attn.o_proj.weight",
+-            assets::TensorStorageType::Native, {c.hidden_size, c.hidden_size});
+-        layer.mlp.gate_proj = binding::linear_from_source(store, source, p + ".mlp.gate_proj",
+-            assets::TensorStorageType::Native, c.intermediate_size, c.hidden_size, false);
+-        layer.mlp.up_proj = binding::linear_from_source(store, source, p + ".mlp.up_proj",
+-            assets::TensorStorageType::Native, c.intermediate_size, c.hidden_size, false);
+-        layer.mlp.down_proj = binding::linear_from_source(store, source, p + ".mlp.down_proj",
+-            assets::TensorStorageType::Native, c.hidden_size, c.intermediate_size, false);
++        const auto qkv = ming_cpu::load_packed_linear_maybe_repack(store, repack_store, source,
++            {c.hidden_size, {
++                {p + ".self_attn.q_proj.weight", p + ".self_attn.q_proj.bias", c.hidden_size},
++                {p + ".self_attn.k_proj.weight", p + ".self_attn.k_proj.bias", c.num_key_value_heads * c.head_dim},
++                {p + ".self_attn.v_proj.weight", p + ".self_attn.v_proj.bias", c.num_key_value_heads * c.head_dim}}, true},
++            quant);
++        a.qkv_weight = qkv.weight;
++        a.qkv_bias = qkv.bias;
++        a.out_weight = ming_cpu::load_matrix_maybe_repack(store, repack_store, source,
++            p + ".self_attn.o_proj.weight", c.hidden_size, c.hidden_size, quant);
++        layer.mlp.gate_up_proj = ming_cpu::load_packed_linear_maybe_repack(store, repack_store, source,
++            {c.hidden_size, {
++                {p + ".mlp.gate_proj.weight", std::nullopt, c.intermediate_size},
++                {p + ".mlp.up_proj.weight", std::nullopt, c.intermediate_size}}, false},
++            quant);
++        layer.mlp.down_proj = ming_cpu::load_linear_maybe_repack(store, repack_store, source,
++            p + ".mlp.down_proj", c.hidden_size, c.intermediate_size, false, quant);
+         weights.stack.layers.push_back(std::move(layer));
+     }
+     weights.final_norm = binding::norm_weight_from_source(store, source, prefix + ".norm", c.hidden_size);
+@@ -129,21 +145,30 @@ struct MingAudioEncoder::Impl {
+         if (input_dim_ <= 0 || hop_ <= 0 || patch_ <= 0 || latent_dim_ <= 0) {
+             throw std::runtime_error("Ming audio encoder requires positive frame and patch dimensions");
+         }
+-        load_audio_backbone(store_, *source, backbone, config.encoder_prefix + ".encoder", execution, attention,
+-            true, encoder_config_, encoder_weights_);
++        const auto vae_quant = ming_cpu::parse_layer_quant_env("MING_VAE_QUANT", ming_cpu::LayerWeightQuant::Q4_0);
++        if (vae_quant == ming_cpu::LayerWeightQuant::Q4_0 || vae_quant == ming_cpu::LayerWeightQuant::IQ4_NL) {
++            if (auto * buft = ming_cpu::cpu_repack_buffer_type_if_supported(execution.backend_type())) {
++                repack_store_ = std::make_unique<core::BackendWeightStore>(
++                    execution.backend(), execution.backend_type(),
++                    "ming3_tts.vae.encoder.repack.weights", 4 * 1024 * 1024, buft);
++            }
++        }
++        load_audio_backbone(store_, repack_store_.get(), *source, backbone, config.encoder_prefix + ".encoder", execution, attention,
++            true, encoder_config_, encoder_weights_, vae_quant);
+         // The published VAE constructs its patch aggregator with four Qwen layers.
+-        load_audio_backbone(store_, *source, backbone, config.encoder_prefix + ".aggregator", execution, attention,
+-            true, aggregator_config_, aggregator_weights_, 4);
++        load_audio_backbone(store_, repack_store_.get(), *source, backbone, config.encoder_prefix + ".aggregator", execution, attention,
++            true, aggregator_config_, aggregator_weights_, vae_quant, 4);
+         hidden_ = encoder_config_.stack.hidden_size;
+         fc1_ = binding::linear_from_source(store_, *source, config.encoder_prefix + ".fc1",
+             assets::TensorStorageType::Native, hidden_, input_dim_, false);
+-        fc2_ = binding::linear_from_source(store_, *source, config.encoder_prefix + ".fc2",
+-            assets::TensorStorageType::Native, hidden_, hidden_, true);
++        fc2_ = ming_cpu::load_linear_maybe_repack(store_, repack_store_.get(), *source, config.encoder_prefix + ".fc2",
++            hidden_, hidden_, true, vae_quant);
+         fc3_ = binding::linear_from_source(store_, *source, config.encoder_prefix + ".fc3",
+             assets::TensorStorageType::Native, 2 * latent_dim_, hidden_, true);
+         const auto cls = source->require_f32(config.encoder_prefix + ".cls_embed", {1, 1, hidden_});
+         cls_ = store_.make_f32(core::TensorShape::from_dims({1, 1, hidden_}), cls);
+         store_.upload();
++        if (repack_store_) repack_store_->upload();
+     }
+ 
+     ~Impl() { release_graph(); }
+@@ -259,6 +284,7 @@ struct MingAudioEncoder::Impl {
+ 
+     core::ExecutionContext & execution_;
+     core::BackendWeightStore store_;
++    std::unique_ptr<core::BackendWeightStore> repack_store_;
+     modules::DecoderHiddenConfig encoder_config_, aggregator_config_;
+     modules::DecoderHiddenWeights encoder_weights_, aggregator_weights_;
+     modules::LinearWeights fc1_, fc2_, fc3_;
+@@ -301,8 +327,16 @@ struct MingAudioDecoder::Impl {
+         patch_ = config.patch_size;
+         sample_rate_ = config.sample_rate;
+         fft_size_ = hop_ * 4;
+-        load_audio_backbone(store_, *source, backbone, config.decoder_prefix + ".decoder", execution, attention,
+-            false, decoder_config_, weights_);
++        const auto vae_quant = ming_cpu::parse_layer_quant_env("MING_VAE_QUANT", ming_cpu::LayerWeightQuant::Q4_0);
++        if (vae_quant == ming_cpu::LayerWeightQuant::Q4_0 || vae_quant == ming_cpu::LayerWeightQuant::IQ4_NL) {
++            if (auto * buft = ming_cpu::cpu_repack_buffer_type_if_supported(execution.backend_type())) {
++                repack_store_ = std::make_unique<core::BackendWeightStore>(
++                    execution.backend(), execution.backend_type(),
++                    "ming3_tts.vae.decoder.repack.weights", 4 * 1024 * 1024, buft);
++            }
++        }
++        load_audio_backbone(store_, repack_store_.get(), *source, backbone, config.decoder_prefix + ".decoder", execution, attention,
++            false, decoder_config_, weights_, vae_quant);
+         const auto & c = decoder_config_.stack;
+         sliding_window_ = dec.sliding_window;
+         input_projection_ = binding::linear_from_source(store_, *source, config.decoder_prefix + ".fc1",
+@@ -311,6 +345,7 @@ struct MingAudioDecoder::Impl {
+             assets::TensorStorageType::Native, fft_size_ + 2, c.hidden_size, true);
+         window_ = source->require_f32(config.decoder_prefix + ".head.istft.window", {fft_size_});
+         store_.upload();
++        if (repack_store_) repack_store_->upload();
+     }
+ 
+     Graph & prepare(int64_t patches, bool streaming) {
+@@ -367,6 +402,7 @@ struct MingAudioDecoder::Impl {
+     }
+ 
+     std::vector<float> decode(const std::vector<float> & latent, int64_t max_window_patches = 0) {
++        MING_VAE_SCOPE(Vae, vae_timer);
+         if (latent.empty() || latent.size() % latent_dim_ != 0) {
+             throw std::runtime_error("Ming audio decoder requires complete latent frames");
+         }
+@@ -391,12 +427,13 @@ struct MingAudioDecoder::Impl {
+             }
+             core::write_tensor_f32(g.input_, padded);
+         }
+-        if (core::compute_graph(execution_, g.graph_, g.host_plan_, "ming3_tts.vae.decoder") != GGML_STATUS_SUCCESS) {
++        if (MING_VAE_MEASURE(VaeGraph, core::compute_graph(execution_, g.graph_, g.host_plan_, "ming3_tts.vae.decoder")) != GGML_STATUS_SUCCESS) {
+             throw std::runtime_error("Ming audio decoder graph execution failed");
+         }
+         auto spectrum = core::read_tensor_f32(g.output_.tensor);
+         const int64_t frames = patches * patch_;
+         spectrum.resize(frames * (fft_size_ + 2));
++        MING_VAE_SCOPE(Istft, istft_timer);
+         if (!istft_ || istft_frames_ != frames) {
+             istft_ = std::make_unique<audio::HostLogMagnitudePhaseISTFT>(audio::HostLogMagnitudePhaseISTFTConfig{
+                 frames, fft_size_, hop_, fft_size_ + 2, static_cast<size_t>(execution_.config().threads)});
+@@ -419,6 +456,7 @@ struct MingAudioDecoder::Impl {
+ 
+     core::ExecutionContext & execution_;
+     core::BackendWeightStore store_;
++    std::unique_ptr<core::BackendWeightStore> repack_store_;
+     modules::DecoderHiddenConfig decoder_config_;
+     modules::DecoderHiddenWeights weights_;
+     modules::LinearWeights input_projection_, output_projection_;
+diff --git a/src/framework/modules/speech_decoders/ming_flow_runtime.cpp b/src/framework/modules/speech_decoders/ming_flow_runtime.cpp
+index fef2d70..90fa0a5 100644
+--- a/src/framework/modules/speech_decoders/ming_flow_runtime.cpp
++++ b/src/framework/modules/speech_decoders/ming_flow_runtime.cpp
+@@ -12,6 +12,10 @@
+ #include "engine/framework/modules/weight_binding.h"
+ 
+ #include <ggml-alloc.h>
++#include "flow_engine.h"
++#ifdef TTS_MING_PROFILE
++#include "tts_stage_timer.h"
++#endif
+ 
+ #include <array>
+ #include <cmath>
+@@ -260,26 +264,27 @@ private:
+ 
+ struct MingFlowRuntime::Impl {
+     Impl(const assets::TensorSource & source, const MingFlowConfig & config, core::ExecutionContext & execution)
+-        : flow(source, config.network, config.network_prefix,
+-              config.latent_dim, config.conditioning_dim, true, execution),
+-          aggregator(source, config.aggregator, config.aggregator_prefix,
+-              config.latent_dim, config.conditioning_dim, false, execution) {
+-        time = {0, 2, 4, 6, 8, 12, 16, 20, 24, 28, 32};
+-        for (auto & t : time) t /= 32.0f;
+-        auto phase = time;
+-        for (auto & t : phase) t *= 1.5707963267948966f;
+-        core::round_f32_to_bf16_in_place(phase);
+-        for (auto & t : phase) t = std::cos(t);
+-        core::round_f32_to_bf16_in_place(phase);
+-        for (auto & t : phase) t -= 1.0f;
+-        core::round_f32_to_bf16_in_place(phase);
+-        for (size_t i = 0; i < time.size(); ++i) phase[i] += time[i];
+-        core::round_f32_to_bf16_in_place(phase);
+-        for (size_t i = 0; i < time.size(); ++i) time[i] -= phase[i];
+-        core::round_f32_to_bf16_in_place(time);
+-        debug::trace_log_f32("ming3_tts.flow.timesteps", {11}, time);
++        : use_direct_cpu(execution.backend_type() == core::BackendType::Cpu) {
++        const auto & cfg = ming_cpu::fast_settings();
++        time = ming_cpu::flow_time_grid(cfg.flow_steps);
++        debug::trace_log_f32("ming3_tts.flow.timesteps", {static_cast<int64_t>(time.size())}, time);
++        if (use_direct_cpu) {
++            direct_flow = std::make_unique<ming_cpu::DirectPatchNetwork>(
++                source, config.network, config.network_prefix,
++                config.latent_dim, config.conditioning_dim, true, cfg.flow_format, execution);
++            direct_aggregator = std::make_unique<ming_cpu::DirectPatchNetwork>(
++                source, config.aggregator, config.aggregator_prefix,
++                config.latent_dim, config.conditioning_dim, false, cfg.aggregator_format, execution);
++        } else {
++            flow = std::make_unique<MingPatchNetwork>(source, config.network, config.network_prefix,
++                config.latent_dim, config.conditioning_dim, true, execution);
++            aggregator = std::make_unique<MingPatchNetwork>(source, config.aggregator, config.aggregator_prefix,
++                config.latent_dim, config.conditioning_dim, false, execution);
++        }
+     }
+-    MingPatchNetwork flow, aggregator;
++    bool use_direct_cpu = false;
++    std::unique_ptr<ming_cpu::DirectPatchNetwork> direct_flow, direct_aggregator;
++    std::unique_ptr<MingPatchNetwork> flow, aggregator;
+     std::vector<float> time;
+ };
+ 
+@@ -290,23 +295,48 @@ MingFlowRuntime::~MingFlowRuntime() = default;
+ 
+ std::vector<float> MingFlowRuntime::predict_velocity(const std::vector<float> & latent,
+     const std::vector<float> & conditioning, const std::vector<float> & history, float time) {
+-    return impl_->flow.run(latent, conditioning, history, time);
++    if (impl_->use_direct_cpu) {
++        return impl_->direct_flow->run(latent, conditioning, history, time, true);
++    }
++    return impl_->flow->run(latent, conditioning, history, time);
+ }
+ 
+ std::vector<float> MingFlowRuntime::aggregate(const std::vector<float> & latent) {
+-    return impl_->aggregator.run(latent, {}, {}, 0.0f);
++    if (impl_->use_direct_cpu) {
++#ifdef TTS_MING_PROFILE
++        return tts_profile::measure(tts_profile::Stage::ProjectionGraph, [&] {
++            return impl_->direct_aggregator->run(latent, {}, {}, 0.0f, true);
++        });
++#else
++        return impl_->direct_aggregator->run(latent, {}, {}, 0.0f, true);
++#endif
++    }
++    return impl_->aggregator->run(latent, {}, {}, 0.0f);
+ }
+ 
+ std::vector<float> MingFlowRuntime::sample(const std::vector<float> & conditioning,
+     const std::vector<float> & history, const std::vector<float> & noise, const std::vector<float> & sde_noise,
+     float cfg, float sigma, float temperature) {
+-    if (sde_noise.size() != noise.size() * 10 || temperature < 0) {
+-        throw std::runtime_error("Ming flow requires ten SDE-noise frames and a nonnegative temperature");
++    if (impl_->use_direct_cpu) {
++        const auto & fast = ming_cpu::fast_settings();
++#ifdef TTS_MING_PROFILE
++        return tts_profile::measure(tts_profile::Stage::FlowGraph, [&] {
++            return impl_->direct_flow->sample(conditioning, history, noise, sde_noise,
++                impl_->time, cfg, sigma, temperature, fast.cfg_interval);
++        });
++#else
++        return impl_->direct_flow->sample(conditioning, history, noise, sde_noise,
++            impl_->time, cfg, sigma, temperature, fast.cfg_interval);
++#endif
++    }
++    const size_t steps = impl_->time.size() - 1;
++    if (sde_noise.size() != noise.size() * steps || temperature < 0) {
++        throw std::runtime_error("Ming flow requires one SDE-noise frame per step and a nonnegative temperature");
+     }
+     const auto & time = impl_->time;
+     auto y = noise;
+-    for (size_t step = 0; step < 10; ++step) {
+-        auto prediction = impl_->flow.run(y, conditioning, history, time[step]);
++    for (size_t step = 0; step < steps; ++step) {
++        auto prediction = impl_->flow->run(y, conditioning, history, time[step]);
+         std::vector<float> guided(noise.size());
+         for (size_t i = 0; i < guided.size(); ++i) guided[i] = prediction[i] - prediction[guided.size() + i];
+         core::round_f32_to_bf16_in_place(guided);
+diff --git a/src/models/ming3_tts/generator.cpp b/src/models/ming3_tts/generator.cpp
+index 6467ac4..34bd9dc 100644
+--- a/src/models/ming3_tts/generator.cpp
++++ b/src/models/ming3_tts/generator.cpp
+@@ -1,4 +1,13 @@
+ #include "engine/models/ming3_tts/generator.h"
++#include "flow_engine.h"
++#include "repack_weights.h"
++#ifdef TTS_MING_PROFILE
++#include "tts_stage_timer.h"
++#define MING_FAST_MEASURE(stage, expr) \
++    tts_profile::measure(tts_profile::Stage::stage, [&] { return (expr); })
++#else
++#define MING_FAST_MEASURE(stage, expr) (expr)
++#endif
+ #include "engine/framework/modules/speech_decoders/ming_flow_runtime.h"
+ 
+ #include "engine/framework/core/backend_weight_store.h"
+@@ -51,20 +60,24 @@ struct MingGenerator::Impl {
+             ? modules::DecoderAttentionMode::FlashGroupedViewKV : modules::DecoderAttentionMode::ManualRepeat;
+         c.runtime.static_cache.update_mode = modules::DecoderStaticCacheUpdateMode::DirectSetRows;
+         if (flash) c.runtime.static_cache.set_rows_mode = modules::DecoderStaticCacheSetRowsMode::BackendViewOptimized;
+-        c.activation_cast.enabled = true;
+-        c.activation_cast.norm_intermediate_type = GGML_TYPE_BF16;
+-        c.activation_cast.rope_intermediate_type = GGML_TYPE_BF16;
+-        c.activation_cast.after_input_norm = true;
+-        c.activation_cast.after_qkv_projection = true;
+-        c.activation_cast.after_rope = true;
+-        c.activation_cast.after_attention = true;
+-        c.activation_cast.after_attention_output = true;
+-        c.activation_cast.after_residual = true;
+-        c.activation_cast.after_ffn_norm = true;
+-        c.activation_cast.after_mlp_projection = true;
+-        c.activation_cast.after_mlp_silu = true;
+-        c.activation_cast.after_mlp_mul = true;
+-        c.activation_cast.after_output = true;
++        const auto ar_quant = ming_cpu::parse_layer_quant_env("MING_AR_QUANT", ming_cpu::LayerWeightQuant::Q4_0);
++        const bool keep_bf16_cast = !ming_cpu::fused_fp32_act_enabled(ar_quant);
++        c.activation_cast.enabled = keep_bf16_cast;
++        if (keep_bf16_cast) {
++            c.activation_cast.norm_intermediate_type = GGML_TYPE_BF16;
++            c.activation_cast.rope_intermediate_type = GGML_TYPE_BF16;
++            c.activation_cast.after_input_norm = true;
++            c.activation_cast.after_qkv_projection = true;
++            c.activation_cast.after_rope = true;
++            c.activation_cast.after_attention = true;
++            c.activation_cast.after_attention_output = true;
++            c.activation_cast.after_residual = true;
++            c.activation_cast.after_ffn_norm = true;
++            c.activation_cast.after_mlp_projection = true;
++            c.activation_cast.after_mlp_silu = true;
++            c.activation_cast.after_mlp_mul = true;
++            c.activation_cast.after_output = true;
++        }
+         runtime.decoder.static_cache_type = flash ? GGML_TYPE_F16 : GGML_TYPE_F32;
+         runtime.decoder.logits_size = 2;
+         runtime.decoder.use_lm_head_bias = true;
+@@ -73,6 +86,13 @@ struct MingGenerator::Impl {
+                                             execution.backend_type() == core::BackendType::Metal)
+             ? GGML_TYPE_F32 : GGML_TYPE_BF16;
+         const auto storage = assets::TensorStorageType::Native;
++        if (ar_quant == ming_cpu::LayerWeightQuant::Q4_0 || ar_quant == ming_cpu::LayerWeightQuant::IQ4_NL) {
++            if (auto * buft = ming_cpu::cpu_repack_buffer_type_if_supported(execution.backend_type())) {
++                repack_store_ = std::make_unique<core::BackendWeightStore>(
++                    execution.backend(), execution.backend_type(), "ming3_tts.ar.repack.weights",
++                    4 * 1024 * 1024, buft);
++            }
++        }
+         modules::CausalDecoderRuntimeWeights weights;
+         vocabulary_ = config.vocabulary_size;
+         embedding_ = store_.load_tensor(*source, "model.model.embed_tokens.weight", storage, {vocabulary_, hidden_});
+@@ -90,26 +110,30 @@ struct MingGenerator::Impl {
+             modules::DecoderLayerWeights layer;
+             layer.input_norm = binding::norm_weight_from_source(store_, *source, p + ".input_layernorm", c.hidden_size);
+             layer.post_norm = binding::norm_weight_from_source(store_, *source, p + ".post_attention_layernorm", c.hidden_size);
+-            const auto qkv = modules::PackedLinearWeightsBuilder({c.hidden_size, {
+-                {p + ".self_attn.q_proj.weight", p + ".self_attn.q_proj.bias", c.hidden_size},
+-                {p + ".self_attn.k_proj.weight", p + ".self_attn.k_proj.bias", c.num_key_value_heads * c.head_dim},
+-                {p + ".self_attn.v_proj.weight", p + ".self_attn.v_proj.bias", c.num_key_value_heads * c.head_dim}}, true})
+-                .build(store_, *source, storage);
++            const auto qkv = ming_cpu::load_packed_linear_maybe_repack(store_, repack_store_.get(), *source,
++                {c.hidden_size, {
++                    {p + ".self_attn.q_proj.weight", p + ".self_attn.q_proj.bias", c.hidden_size},
++                    {p + ".self_attn.k_proj.weight", p + ".self_attn.k_proj.bias", c.num_key_value_heads * c.head_dim},
++                    {p + ".self_attn.v_proj.weight", p + ".self_attn.v_proj.bias", c.num_key_value_heads * c.head_dim}}, true},
++                ar_quant);
+             layer.self_attention.qkv_weight = qkv.weight;
+             layer.self_attention.qkv_bias = qkv.bias;
+-            layer.self_attention.out_weight = store_.load_tensor(*source, p + ".self_attn.o_proj.weight", storage,
+-                {c.hidden_size, c.hidden_size});
+-            layer.mlp.gate_up_proj = modules::PackedLinearWeightsBuilder({c.hidden_size, {
+-                {p + ".mlp.gate_proj.weight", std::nullopt, c.intermediate_size},
+-                {p + ".mlp.up_proj.weight", std::nullopt, c.intermediate_size}}, false}).build(store_, *source, storage);
+-            layer.mlp.down_proj = binding::linear_from_source(store_, *source, p + ".mlp.down_proj", storage,
+-                c.hidden_size, c.intermediate_size, false);
++            layer.self_attention.out_weight = ming_cpu::load_matrix_maybe_repack(store_, repack_store_.get(), *source,
++                p + ".self_attn.o_proj.weight", c.hidden_size, c.hidden_size, ar_quant);
++            layer.mlp.gate_up_proj = ming_cpu::load_packed_linear_maybe_repack(store_, repack_store_.get(), *source,
++                {c.hidden_size, {
++                    {p + ".mlp.gate_proj.weight", std::nullopt, c.intermediate_size},
++                    {p + ".mlp.up_proj.weight", std::nullopt, c.intermediate_size}}, false},
++                ar_quant);
++            layer.mlp.down_proj = ming_cpu::load_linear_maybe_repack(store_, repack_store_.get(), *source,
++                p + ".mlp.down_proj", c.hidden_size, c.intermediate_size, false, ar_quant);
+             layer.rope_frequency_factors = factors;
+             weights.stack.layers.push_back(std::move(layer));
+         }
+         weights.final_norm = binding::norm_weight_from_source(store_, *source, "model.model.norm", c.hidden_size);
+         weights.lm_head = binding::linear_from_source(store_, *source, "stop_head", storage, 2, c.hidden_size, true);
+         store_.upload();
++        if (repack_store_) repack_store_->upload();
+         decoder_ = std::make_unique<modules::CausalDecoderRuntime>(execution_, runtime, std::move(weights));
+     }
+ 
+@@ -188,8 +212,12 @@ struct MingGenerator::Impl {
+                 static_cast<size_t>(prompt.latent_position) + prompt_latents.size() / latent_dim_ != prompt.ids.size()) {
+                 throw std::runtime_error("Ming prompt latent positions do not match the acoustic reference");
+             }
+-            const auto projected = flow_.aggregate(prompt_latents);
+-            std::copy(projected.begin(), projected.end(), result.begin() + prompt.latent_position * hidden_);
++            if (cached_prompt_latents_ != prompt_latents) {
++                cached_prompt_latents_ = prompt_latents;
++                cached_prompt_projected_ = flow_.aggregate(prompt_latents);
++            }
++            std::copy(cached_prompt_projected_.begin(), cached_prompt_projected_.end(),
++                result.begin() + prompt.latent_position * hidden_);
+         }
+         return result;
+     }
+@@ -207,24 +235,28 @@ struct MingGenerator::Impl {
+         if (history.size() != static_cast<size_t>(latent_dim_)) throw std::runtime_error("Ming history has the wrong latent dimension");
+         const auto policy = sampling::resolve_torch_cuda_sampling_policy(execution_.backend_type(),
+             execution_.config().device, "ming3_tts", "Ming TTS");
+-        const auto prefill = decoder_->prefill_embeddings_into_decode_cache(embeddings, prompt_steps, 512);
++        const auto prefill = MING_FAST_MEASURE(ArPrefill, decoder_->prefill_embeddings_into_decode_cache(embeddings, prompt_steps, 512));
+         modules::CausalDecoderStepResult state{prefill.logits, prefill.hidden};
++        const int64_t flow_steps = ming_cpu::fast_settings().flow_steps;
+         std::vector<float> latents;
+         for (int64_t step = 0; step < budget; ++step) {
+-            const auto noise = sampling::generate_torch_cuda_tensor_iterator_randn(latent_dim_, options.seed, offset,
+-                policy, sampling::TorchRandnPrecision::BFloat16);
++            const auto noise = MING_FAST_MEASURE(Noise, sampling::generate_torch_cuda_tensor_iterator_randn(latent_dim_, options.seed, offset,
++                policy, sampling::TorchRandnPrecision::BFloat16));
+             offset += sampling::torch_cuda_tensor_iterator_offset_blocks(latent_dim_, policy);
+-            const auto sde_noise = sampling::generate_torch_cuda_tensor_iterator_randn(10 * latent_dim_, options.seed, offset,
+-                policy, sampling::TorchRandnPrecision::BFloat16);
++            const auto sde_noise = MING_FAST_MEASURE(Noise, sampling::generate_torch_cuda_tensor_iterator_randn(flow_steps * latent_dim_, options.seed, offset,
++                policy, sampling::TorchRandnPrecision::BFloat16));
+             offset += sampling::torch_cuda_tensor_iterator_offset_blocks(10 * latent_dim_, policy);
+-            auto patch = flow_.sample(state.hidden, history, noise, sde_noise, options.cfg, options.sigma, options.temperature);
++            auto patch = MING_FAST_MEASURE(Flow, flow_.sample(state.hidden, history, noise, sde_noise, options.cfg, options.sigma, options.temperature));
+             latents.insert(latents.end(), patch.begin(), patch.end());
+             if (on_patch) on_patch(patch);
+             core::round_f32_to_bf16_in_place(state.logits);
+             std::vector<float> stop_probability{1.0f / (1.0f + std::exp(state.logits.at(0) - state.logits.at(1)))};
+             core::round_f32_to_bf16_in_place(stop_probability);
+             if (step > 3 && stop_probability[0] > 0.5f) break;
+-            if (step + 1 < budget) state = decoder_->decode_embedding(flow_.aggregate(patch));
++            if (step + 1 < budget) {
++                const auto projected = MING_FAST_MEASURE(Projection, flow_.aggregate(patch));
++                state = MING_FAST_MEASURE(ArDecode, decoder_->decode_embedding(projected));
++            }
+             history = std::move(patch);
+         }
+         return latents;
+@@ -232,6 +264,7 @@ struct MingGenerator::Impl {
+ 
+     core::ExecutionContext & execution_;
+     core::BackendWeightStore store_;
++    std::unique_ptr<core::BackendWeightStore> repack_store_;
+     modules::MingFlowRuntime flow_;
+     std::unique_ptr<modules::CausalDecoderRuntime> decoder_;
+     int64_t hidden_ = 0, latent_dim_ = 0, vocabulary_ = 0, prompt_steps_ = 0;
+@@ -242,6 +275,8 @@ struct MingGenerator::Impl {
+     ggml_cgraph * prompt_graph_ = nullptr;
+     ggml_gallocr_t prompt_allocator_ = nullptr;
+     core::HostGraphPlan prompt_plan_;
++    std::vector<float> cached_prompt_latents_;
++    std::vector<float> cached_prompt_projected_;
+ };
+ 
+ MingGenerator::MingGenerator(std::shared_ptr<const assets::TensorSource> source, const MingConfig & config,
+diff --git a/src/models/ming3_tts/session.cpp b/src/models/ming3_tts/session.cpp
+index 3cbfa17..ecc228c 100644
+--- a/src/models/ming3_tts/session.cpp
++++ b/src/models/ming3_tts/session.cpp
+@@ -1,4 +1,12 @@
+ #include "engine/models/ming3_tts/session.h"
++#ifdef TTS_MING_PROFILE
++#include "tts_stage_timer.h"
++#define MING_SESSION_SCOPE(stage, name) tts_profile::Scope name(tts_profile::Stage::stage)
++#define MING_SESSION_MEASURE(stage, expr) tts_profile::measure(tts_profile::Stage::stage, [&] { return (expr); })
++#else
++#define MING_SESSION_SCOPE(stage, name)
++#define MING_SESSION_MEASURE(stage, expr) (expr)
++#endif
+ 
+ #include "engine/models/ming3_tts/assets.h"
+ #include "engine/framework/codecs/ming_audio_vae_runtime.h"
+@@ -23,6 +31,7 @@
+ #include <chrono>
+ #include <cmath>
+ #include <cstdint>
++#include <cstdlib>
+ #include <cstring>
+ #include <string_view>
+ 
+@@ -97,6 +106,7 @@ private:
+     void reset_stream_state() override { streaming_audio_.reset(); }
+ 
+     runtime::TaskResult synthesize(const runtime::TaskRequest & request, bool streaming) {
++        MING_SESSION_SCOPE(Other, session_timer);
+         require_prepared("Ming TTS run");
+         runtime::validate_spec_backed_request_options(request.options, request.option_arrays, *contract_, "Ming TTS");
+         if (!request.text_input || request.text_input->text.empty()) throw runtime::InvalidRequestError("Ming TTS requires text input");
+@@ -219,9 +229,9 @@ private:
+         if (!reference_latents.empty()) history.assign(reference_latents.end() - latent_dim, reference_latents.end());
+         for (const auto & chunk : chunks) {
+             debug::trace_log_scalar("ming3_tts.text.chunk", io::json::stringify_string(chunk));
+-            const auto prompt = prompts_.build(chunk, prompt_options, speakers.size(), reference_text,
+-                reference_latents.size() / latent_dim);
+-            const auto embeddings = generator_.prepare_inputs(prompt, speakers, reference_latents, zero_speaker);
++            const auto prompt = MING_SESSION_MEASURE(Frontend, prompts_.build(chunk, prompt_options, speakers.size(), reference_text,
++                reference_latents.size() / latent_dim));
++            const auto embeddings = MING_SESSION_MEASURE(Frontend, generator_.prepare_inputs(prompt, speakers, reference_latents, zero_speaker));
+             std::vector<float> emitted_audio;
+             size_t checked_frames = 0;
+             size_t last_speech_frame = 0;
+@@ -282,10 +292,28 @@ private:
+             waveform.insert(waveform.end(), audio.begin(), audio.end());
+             // Anchor later chunks to the first voice, excluding its trailing silence.
+             if (anchor_voice && &chunk == &chunks.front() && last > 0) {
+-                const auto reference = encode_reference(runtime::AudioBuffer{sample_rate_, 1,
+-                    std::vector<float>(audio.begin(), audio.begin() + last * frame)}, sampling.seed, random_offset);
+-                speakers = {reference.speaker};
+-                reference_latents = reference.latents;
++                const runtime::AudioBuffer trimmed_audio{sample_rate_, 1,
++                    std::vector<float>(audio.begin(), audio.begin() + last * frame)};
++                const char * reuse_env = std::getenv("MING_REUSE_ANCHOR_LATENT");
++                const bool reuse_latent = !reuse_env || reuse_env[0] != '0';
++                const size_t patch_samples = static_cast<size_t>(codec.decoder.output_dim * codec.patch_size);
++                const size_t latent_patches = latent.size() / static_cast<size_t>(latent_dim);
++                const size_t anchor_patches = patch_samples > 0
++                    ? std::min(latent_patches, (last * frame + patch_samples - 1) / patch_samples)
++                    : 0;
++                if (reuse_latent && anchor_patches > 0) {
++                    speakers = {encode_speaker_only(trimmed_audio)};
++                    reference_latents.assign(latent.begin(),
++                        latent.begin() + anchor_patches * static_cast<size_t>(latent_dim));
++                    const auto policy = sampling::resolve_torch_cuda_sampling_policy(execution_context().backend_type(),
++                        options().backend.device, "ming3_tts", "Ming TTS");
++                    random_offset += sampling::torch_cuda_tensor_iterator_offset_blocks(
++                        static_cast<int64_t>(anchor_patches) * latent_dim, policy);
++                } else {
++                    const auto reference = encode_reference(trimmed_audio, sampling.seed, random_offset);
++                    speakers = {reference.speaker};
++                    reference_latents = reference.latents;
++                }
+                 reference_text = chunk;
+                 zero_speaker = false;
+                 history.assign(reference_latents.end() - latent_dim, reference_latents.end());
+@@ -307,7 +335,24 @@ private:
+         return reference;
+     }
+ 
++    std::vector<float> encode_speaker_only(const runtime::AudioBuffer & audio) {
++        MING_SESSION_SCOPE(ReferenceEncode, reference_timer);
++        if (!speaker_) {
++            modules::CampplusEncoderConfig config;
++            config.weight_layout = modules::CampplusEncoderWeightLayout::Fused;
++            config.normalize_partial_segment_by_full_length = true;
++            speaker_ = std::make_unique<modules::CampplusEncoderComponent>(
++                modules::CampplusEncoderComponent::load_from_tensor_source(
++                    assets_->speaker_weights, options().backend, config));
++        }
++        const auto features = audio::ReferenceAudioFrontend::campplus_fbank_16k(
++            audio::convert_interleaved_audio_to_mono_torchaudio_sinc_hann_resampled(
++                audio.samples, audio.sample_rate, audio.channels, 16000));
++        return speaker_->embed_from_features(features.values, features.frames, features.feature_dim).embedding;
++    }
++
+     MingReference encode_reference(const runtime::AudioBuffer & audio, uint64_t seed, uint64_t & random_offset) {
++        MING_SESSION_SCOPE(ReferenceEncode, reference_timer);
+         if (!encoder_) encoder_ = std::make_unique<modules::MingAudioEncoder>(assets_->model_weights,
+             assets_->config.codec, execution_context());
+         if (!speaker_) {

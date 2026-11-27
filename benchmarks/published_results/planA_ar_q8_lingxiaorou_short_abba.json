@@ -1,0 +1,155 @@
+{
+  "complete": true,
+  "order": "ABBA",
+  "threads": 4,
+  "warmups_per_block": 1,
+  "fixture": "zh_lingxiaorou_short.txt",
+  "arguments": {
+    "fixture": "zh_lingxiaorou_short.txt",
+    "iterations": 2,
+    "threads": 4,
+    "reference": "baseline",
+    "flow_quant": "q4g64",
+    "agg_quant": "q4g64",
+    "ar_quant": "q8",
+    "vae_quant": "q4_0",
+    "fused_fp32_act": "1",
+    "flow_steps": 8,
+    "cfg_interval": 1,
+    "reuse_anchor_latent": "1",
+    "template_name": "freeform",
+    "instruct": "{\"audio_sequence\": [{\"序号\": 1, \"说话人\": \"speaker_1\", \"方言\": null, \"风格\": null, \"语速\": null, \"基频\": null, \"音量\": null, \"情感\": null, \"BGM\": {\"Genre\": null, \"Mood\": null, \"Instrument\": null, \"Theme\": null, \"ENV\": null, \"SNR\": null}, \"IP\": \"灵小柔\"}]}",
+    "tag_suffix": "lingxiaorou",
+    "skip_regressions": true
+  },
+  "measured_runs_per_variant": 4,
+  "measurements": {
+    "reference": {
+      "median_rtf": 1.8065761280000001,
+      "rtfs": [
+        1.813080782,
+        1.801405352,
+        1.802151347,
+        1.811000909
+      ],
+      "peak_rss_gib": 1.3485069274902344,
+      "max_swap_bytes": 0
+    },
+    "candidate": {
+      "median_rtf": 0.9525128700000001,
+      "rtfs": [
+        0.953088394,
+        0.948779235,
+        0.971616743,
+        0.951937346
+      ],
+      "peak_rss_gib": 1.2437705993652344,
+      "max_swap_bytes": 0
+    }
+  },
+  "rtf_reduction_percent": 47.27524319417997,
+  "speedup": 1.896642223847327,
+  "audio_bitwise_equal": false,
+  "runs": [
+    {
+      "role": "reference",
+      "variant": "baseline",
+      "fixture": "zh_lingxiaorou_short.txt",
+      "results": "benchmarks/results/ming3-q8-t4-20261127T020608Z",
+      "median_rtf": 1.807243067,
+      "rtfs": [
+        1.813080782,
+        1.801405352
+      ],
+      "audio_s": [
+        6.1,
+        6.1
+      ],
+      "peak_rss_kib": 1413852,
+      "cpu_percent": [
+        397.20790349,
+        398.574905176
+      ],
+      "swap_bytes": 0,
+      "audio_sha256": [
+        "b2e6ccdd40daa37a260b160f9d3ce230fa967fec9b7c439750ebac9b0acde4f0",
+        "b2e6ccdd40daa37a260b160f9d3ce230fa967fec9b7c439750ebac9b0acde4f0"
+      ]
+    },
+    {
+      "role": "candidate",
+      "variant": "fast",
+      "fixture": "zh_lingxiaorou_short.txt",
+      "results": "benchmarks/results/ming3-q8-fast-t4-20261127T020647Z",
+      "median_rtf": 0.9509338145,
+      "rtfs": [
+        0.953088394,
+        0.948779235
+      ],
+      "audio_s": [
+        6.0,
+        6.0
+      ],
+      "peak_rss_kib": 1304188,
+      "cpu_percent": [
+        398.166216679,
+        398.756039246
+      ],
+      "swap_bytes": 0,
+      "audio_sha256": [
+        "214be7de72f668c3990a1b0b7166aaf6ce78e91ff406503592254b56d96663e2",
+        "214be7de72f668c3990a1b0b7166aaf6ce78e91ff406503592254b56d96663e2"
+      ]
+    },
+    {
+      "role": "candidate",
+      "variant": "fast",
+      "fixture": "zh_lingxiaorou_short.txt",
+      "results": "benchmarks/results/ming3-q8-fast-t4-20261127T020711Z",
+      "median_rtf": 0.9617770445,
+      "rtfs": [
+        0.971616743,
+        0.951937346
+      ],
+      "audio_s": [
+        6.0,
+        6.0
+      ],
+      "peak_rss_kib": 1303716,
+      "cpu_percent": [
+        394.869018708,
+        397.301410074
+      ],
+      "swap_bytes": 0,
+      "audio_sha256": [
+        "214be7de72f668c3990a1b0b7166aaf6ce78e91ff406503592254b56d96663e2",
+        "214be7de72f668c3990a1b0b7166aaf6ce78e91ff406503592254b56d96663e2"
+      ]
+    },
+    {
+      "role": "reference",
+      "variant": "baseline",
+      "fixture": "zh_lingxiaorou_short.txt",
+      "results": "benchmarks/results/ming3-q8-t4-20261127T020734Z",
+      "median_rtf": 1.8065761280000001,
+      "rtfs": [
+        1.802151347,
+        1.811000909
+      ],
+      "audio_s": [
+        6.1,
+        6.1
+      ],
+      "peak_rss_kib": 1414012,
+      "cpu_percent": [
+        397.997076248,
+        398.233671515
+      ],
+      "swap_bytes": 0,
+      "audio_sha256": [
+        "b2e6ccdd40daa37a260b160f9d3ce230fa967fec9b7c439750ebac9b0acde4f0",
+        "b2e6ccdd40daa37a260b160f9d3ce230fa967fec9b7c439750ebac9b0acde4f0"
+      ]
+    }
+  ]
+}
