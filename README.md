@@ -87,7 +87,7 @@ Before writing kernels, we profiled stage timings and measured raw DRAM read ban
 flowchart LR
     T["Text + Optional IP Voice"] --> AR["24-Layer AR Backbone<br/>Q8_0 (Plan A) or Q4_0 CPU_REPACK (Plan B/C)<br/>+ Fused FP32 Activations & SwiGLU"]
     AR --> FLOW["DirectPatchNetwork (Persistent OpenMP C++)<br/>12-Layer Flow + 4-Layer Aggregator<br/>Unsigned 4-bit Group Microkernel (Q4_1_G64/G128)<br/>Zero GGML Graph Barriers + Patch Caching"]
-    FLOW --> VAE["8-Layer VAE Decoder<br/>Load-Time Q4_0_8x8 CPU_REPACK<br/>+ Fused FP32 Activations"]
+    FLOW --> VAE["24-Layer Causal Sliding-Window VAE Decoder<br/>Load-Time Q4_0_8x8 CPU_REPACK + Fused FP32<br/>128-Slot Ring KV-Cache + Stateful ISTFT (O(N) Streaming)"]
     VAE --> WAV["iSTFT -> 44.1 kHz PCM16 WAV"]
 ```
 
@@ -108,6 +108,10 @@ flowchart LR
 5. **Two Listening Catches (Why Plan A Uses `AR=q8` + `--fused-fp32-act auto`)**:
    - **Catch 1 (`AR=q4_0`)**: Automated ASR CER looked great on `AR=q4_0` (`CER = 0.02–0.03`), yet side-by-side listening against Mac Metal revealed a telephone/metallic compression artifact starting at Chunk 2 of long passages. Component isolation proved 4-bit AR was the culprit.
    - **Catch 2 (`AR=q8` + forced `--fused-fp32-act 1`)**: Listening closely to the 107-char `灵小柔` paragraph caught a robotic segment in the second half of Chunk 2. Single-variable ablations isolated it to stripping AR's 13 upstream BF16 rounding points. Plan A therefore uses **`--fused-fp32-act auto`** (AR keeps its upstream BF16 rounding; only 4-bit VAE fuses FP32) together with `Flow/Agg=q4g128` — eliminating the chunk-2 robotic artifact while achieving **`0.9337`** / **`0.9383`** speaker cosine (`review_flag=false`) on `灵小柔` 30c/107c and **`RTF 0.84–0.99`** across short, paragraph, and `灵小柔` 30c benchmarks.
+6. **True Frame-Level Streaming: 24-Layer Sliding-Window Ring KV-Cache VAE & Stateful ISTFT**:
+   - Upstream `ming3_tts` streaming recomputed up to `380` left-context patches (`30.4 s`) through the 24-layer Qwen2 VAE decoder on every chunk ($O(N^2)$), inflating 4-frame streaming RTF to **`2.99`**.
+   - Replacing full-window recomputation with a **128-slot `F32` ring-buffer sliding-window (`64`) KV cache** (~3 MiB across all 24 layers), exact 1-patch left/right `Interpolate1d(Linear)` boundaries, and a **3-frame overlap-add stateful ISTFT** cuts streaming VAE complexity to $O(N)$ (`left_context_frames: 380 → 1`).
+   - Verified by `ming3_stream_vae_parity` (2 full 128-slot ring wraparounds; `grow(8)` vs `fixed(3)` schedules are bitwise-invariant `max_abs = 0`) and live speech parity (`0.99987` waveform cosine vs offline): streaming `灵小柔` 30c drops from **`RTF 2.987 → 0.937`** (**3.19×** speedup, faster than offline `0.988`) with **`TTFT 0.87–1.24 s`** and **`0 ms` underrun** (200 ms buffer).
 
 ---
 
@@ -139,11 +143,35 @@ git -C .cache/audio.cpp-ming-fast apply "$PWD/src/patches/ming_fast_cpu.patch"
 
 cmake -S benchmarks -B .cache/bench-build -DCMAKE_BUILD_TYPE=Release \
   -DTTS_BUILD_MING_ENGINE=ON -DTTS_BUILD_MING_FAST=ON -DTTS_BUILD_MING_PROFILE=ON
-cmake --build .cache/bench-build --target ming3_rtf ming3_fast_rtf ming3_fast_profile_rtf ming3_fast_engine_test -j 2
+cmake --build .cache/bench-build --target ming3_rtf ming3_fast_rtf ming3_fast_profile_rtf ming3_fast_server ming3_fast_engine_test ming3_stream_vae_test -j 2
 ctest --test-dir .cache/bench-build --output-on-failure
 ```
 
-### 3. Run ABBA Benchmarks
+### 3. Deploy as a Real-Time HTTP & Streaming TTS Service
+
+Build `ming3_fast_server` above and run the backend (`deploy/server.json`, single resident `ming3-tts-stream` model ~1.4 GiB RAM / 0 swap) behind the zero-dependency HTTP/1.1 gateway (`deploy/tts_gateway.py`, in-process `libsoxr` resampling):
+
+```bash
+# Install and customize the portable systemd --user templates (replace /path/to/ming3-tts-cpu-realtime)
+mkdir -p ~/.config/systemd/user
+cp deploy/ming3-tts.service.example ~/.config/systemd/user/ming3-tts.service
+cp deploy/ming3-tts-gateway.service.example ~/.config/systemd/user/ming3-tts-gateway.service
+systemctl --user daemon-reload && systemctl --user enable --now ming3-tts.service ming3-tts-gateway.service
+
+# OpenAI-compatible WAV endpoint (shares the hot streaming model; no model reload)
+curl -sS http://127.0.0.1:8080/v1/audio/speech \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"ming3-tts","input":"你好，这是默认灵小柔实时语音服务。","voice":"灵小柔"}' \
+  --output out.wav
+
+# Frame-level real-time AYTS/1 PCM stream (24 kHz mono s16le; TTFT ~1.2s default / ~0.87s with grow)
+curl --no-buffer --noproxy '*' http://127.0.0.1:8080/v1/audio/speech/stream \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"ming3-tts","input":"你好，这是流式语音合成测试。","voice":"灵小柔","response_format":"pcm","sample_rate":24000}' \
+  --output speech.ayts
+```
+
+### 4. Run ABBA Benchmarks
 
 ```bash
 # Plan A (Recommended: AR=q8 + fused=auto [keeps AR BF16] + Flow/Agg=q4g128 8-step + VAE=q4_0)
@@ -180,9 +208,14 @@ python3 benchmarks/compare_ming_fast.py --fixture zh_paragraph.txt --iterations 
 │   └── patches/
 │       └── ming_fast_cpu.patch      # Replayable 5-file patch against audio.cpp 7d20b414
 ├── tests/
-│   └── ming_fast_engine_test.cpp    # CTest AVX2-vs-scalar parity, F32 cosine, and time-grid checks
+│   ├── ming_fast_engine_test.cpp    # CTest AVX2-vs-scalar parity, F32 cosine, and time-grid checks
+│   └── ming_stream_vae_test.cpp     # CTest streaming KV-cache VAE parity across 2 ring-buffer wraps
+├── deploy/
+│   ├── server.json                  # Native ming3_fast_server config (Plan A, built-in voice presets)
+│   ├── tts_gateway.py               # HTTP/1.1 AYTS/1 streaming gateway (in-process libsoxr resampler)
+│   └── *.service.example            # Portable systemd --user unit templates with cgroup resource caps
 ├── benchmarks/
-│   ├── CMakeLists.txt               # Builds baseline, profiled, and fast targets
+│   ├── CMakeLists.txt               # Builds baseline, profiled, fast, and ming3_fast_server targets
 │   ├── ming3_rtf.cpp                # Resource-isolated C++ timing harness
 │   ├── run_tts.py / run_ming3.py    # systemd-run cgroup monitor (CPU/RSS/swap/steal)
 │   ├── compare_ming_fast.py         # Alternating ABBA comparison & WAV hash validator

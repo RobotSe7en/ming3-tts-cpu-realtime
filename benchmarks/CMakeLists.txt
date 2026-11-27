@@ -180,6 +180,41 @@ if(TTS_BUILD_MING_FAST)
     target_link_libraries(ming3_fast_engine_test PRIVATE ming_fast_support)
     enable_testing()
     add_test(NAME ming3_fast_engine_parity COMMAND ming3_fast_engine_test)
+
+    add_executable(ming3_stream_vae_test "${CMAKE_CURRENT_LIST_DIR}/../tests/ming_stream_vae_test.cpp"
+        $<TARGET_OBJECTS:ming3_fast_objects>)
+    target_link_libraries(ming3_stream_vae_test PRIVATE ming_fast_support)
+    add_test(NAME ming3_stream_vae_parity COMMAND ming3_stream_vae_test
+        WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/..")
+
+    file(GLOB AUDIOCPP_FAST_RECIPE_PLUGINS CONFIGURE_DEPENDS
+        "${AUDIOCPP_SOURCE_DIR}/app/recipe/plugins/*.cpp")
+    add_executable(ming3_fast_server
+        $<TARGET_OBJECTS:ming3_fast_objects>
+        "${AUDIOCPP_SOURCE_DIR}/app/common/base64.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/common/build_info.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/server/main.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/server/config.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/server/frontend.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/server/http.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/server/parallel_http.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/server/model_memory.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/server/multipart.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/server/server_protocol.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/server/server_ui.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/server/runtime.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/server/parallel_runtime.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/server/ui_assets.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/cli/args.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/cli/request.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/streaming/pcm_source.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/streaming/streaming.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/recipe/streaming_tempo.cpp"
+        "${AUDIOCPP_SOURCE_DIR}/app/recipe/recipe.cpp"
+        ${AUDIOCPP_FAST_RECIPE_PLUGINS})
+    target_include_directories(ming3_fast_server PRIVATE
+        "${CMAKE_BINARY_DIR}/audiocpp/generated")
+    target_link_libraries(ming3_fast_server PRIVATE ming_fast_support ggml OpenMP::OpenMP_CXX)
     if(TTS_BUILD_MING_PROFILE)
         add_library(ming3_fast_profile_objects OBJECT
             "${AUDIOCPP_MING_FAST_SOURCE_DIR}/src/models/ming3_tts/generator.cpp"

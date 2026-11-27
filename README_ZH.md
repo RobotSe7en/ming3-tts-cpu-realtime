@@ -92,6 +92,10 @@
 5. **两轮实听排错（为什么方案 A 采用 `AR=q8` + `--fused-fp32-act auto`）**：
    - **第一轮（`AR=q4_0` 电话音）**：仅看 SenseVoice ASR CER 时，`AR=q4_0` 长文本表现很好（`0.02–0.03`），但与 Mac Metal 输出盲听对比后发现第 2 分块起出现明显金属/电话压缩感；逐项隔离精准定位为 24 层 `AR=q4_0`。
    - **第二轮（`AR=q8` 强开 `fused_fp32_act=1` 机械音）**：精听 `灵小柔` 107 字长段落时在第 2 块后半段发现机械音；单变量消融隔离出元凶为移除 AR 主干 13 处上游 BF16 舍入。方案 A 因此改用 **`--fused-fp32-act auto`**（AR 保留上游 BF16 舍入，仅 4-bit VAE 走融合 FP32）并配合 `Flow/Agg=q4g128`，彻底消除第 2 块机械音，`灵小柔` 30/107 字音色余弦达 **`0.9337`** / **`0.9383`**（通过），短句、无参考长段与 `灵小柔` 30 字均稳在 **`RTF 0.84–0.99`**。
+6. **真·帧级实时流式：24 层滑窗环形 KV Cache VAE 与有状态 ISTFT**：
+   - 上游 `ming3_tts` 流式解码每块重算最多 `380` 个历史 patch（`30.4 秒`）的 24 层 Qwen2 VAE（$O(N^2)$ 复杂度），导致 4 帧流式 RTF 恶化至 **`2.99`**。
+   - 新增 **128 槽 `F32` 环形滑窗（`window=64`）KV Cache**（24 层共约 `3 MiB`）、精确 1-patch 左右邻 `Interpolate1d(Linear)` 边界与 **3 帧重叠有状态 ISTFT**，将流式 VAE 降为 $O(N)$（`left_context_frames: 380 → 1`）。
+   - `ming3_stream_vae_parity` 双圈环形回绕单测验证 `grow(8)` 与 `fixed(3)` 切块逐样本比特一致（`max_abs = 0`），真实「灵小柔」30 字波形与离线余弦达 **`0.99987`**，流式 RTF 从 **`2.987 → 0.937`**（加速 **3.19×**，甚至快于离线 `0.988`），端到端首包 **`0.87 ~ 1.24 s`**，200 ms 缓冲下 **`0 ms` 断流**。
 
 ---
 
@@ -123,11 +127,35 @@ git -C .cache/audio.cpp-ming-fast apply "$PWD/src/patches/ming_fast_cpu.patch"
 
 cmake -S benchmarks -B .cache/bench-build -DCMAKE_BUILD_TYPE=Release \
   -DTTS_BUILD_MING_ENGINE=ON -DTTS_BUILD_MING_FAST=ON -DTTS_BUILD_MING_PROFILE=ON
-cmake --build .cache/bench-build --target ming3_rtf ming3_fast_rtf ming3_fast_profile_rtf ming3_fast_engine_test -j 2
+cmake --build .cache/bench-build --target ming3_rtf ming3_fast_rtf ming3_fast_profile_rtf ming3_fast_server ming3_fast_engine_test ming3_stream_vae_test -j 2
 ctest --test-dir .cache/bench-build --output-on-failure
 ```
 
-### 3. 运行 ABBA 基准对照
+### 3. 部署为实时 HTTP / 流式 TTS 服务
+
+编译 `ming3_fast_server` 后，可用 `deploy/` 中的后端配置（单热模型 `ming3-tts-stream` 常驻约 `1.4 GiB` / `0 Swap`）配合无第三方依赖的 HTTP/1.1 网关（`deploy/tts_gateway.py`，进程内 `libsoxr` 流式重采样）直接提供 OpenAI WAV 与 `AYTS/1` 流式接口：
+
+```bash
+# 复制并按实际仓库路径修改 systemd --user 模板
+mkdir -p ~/.config/systemd/user
+cp deploy/ming3-tts.service.example ~/.config/systemd/user/ming3-tts.service
+cp deploy/ming3-tts-gateway.service.example ~/.config/systemd/user/ming3-tts-gateway.service
+systemctl --user daemon-reload && systemctl --user enable --now ming3-tts.service ming3-tts-gateway.service
+
+# OpenAI 兼容离线 WAV 接口（复用常驻热模型，无切换重载）
+curl -sS http://127.0.0.1:8080/v1/audio/speech \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"ming3-tts","input":"你好，这是默认灵小柔实时语音服务。","voice":"灵小柔"}' \
+  --output out.wav
+
+# 帧级实时流式 AYTS/1 PCM 接口（24 kHz 单声道 s16le；默认首包 ~1.2s，grow 模式 ~0.87s）
+curl --no-buffer --noproxy '*' http://127.0.0.1:8080/v1/audio/speech/stream \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"ming3-tts","input":"你好，这是流式语音合成测试。","voice":"灵小柔","response_format":"pcm","sample_rate":24000}' \
+  --output speech.ayts
+```
+
+### 4. 运行 ABBA 基准对照
 
 ```bash
 # 方案 A（推荐高音质实时版：AR=q8 + fused=auto 保留 AR BF16 + Flow/Agg=q4g128 8 步 + VAE=q4_0）

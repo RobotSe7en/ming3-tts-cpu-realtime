@@ -1,0 +1,21 @@
+[Unit]
+Description=Ming-3.0-TTS HTTP/1.1 AYTS/1 Streaming Gateway
+After=network-online.target ming3-tts.service
+Wants=ming3-tts.service
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/ming3-tts-cpu-realtime
+ExecStart=/usr/bin/python3 /path/to/ming3-tts-cpu-realtime/deploy/tts_gateway.py --host 0.0.0.0 --port 8080 --backend-host 127.0.0.1 --backend-port 18080
+
+CPUQuota=100%
+MemoryMax=512M
+MemorySwapMax=0
+TasksMax=64
+Nice=10
+
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

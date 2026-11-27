@@ -1,0 +1,104 @@
+{
+    "host": "127.0.0.1",
+    "port": 18080,
+    "cors_origins": "*",
+    "ui": true,
+    "backend": "cpu",
+    "threads": 4,
+    "busy_timeout_ms": 180000,
+    "max_loaded_models": 1,
+    "models": [
+        {
+            "id": "ming3-tts-stream",
+            "family": "ming3_tts",
+            "path": "../models/ming-3.0-tts-0.5b-q8_0.gguf",
+            "task": "tts",
+            "mode": "streaming",
+            "lazy": false,
+            "default_voice_preset": "lingxiaorou",
+            "voice_presets": {
+                "lingxiaorou": {
+                    "options": {
+                        "template_name": "freeform",
+                        "instruct": "{\"audio_sequence\": [{\"序号\": 1, \"说话人\": \"speaker_1\", \"方言\": null, \"风格\": null, \"语速\": null, \"基频\": null, \"音量\": null, \"情感\": null, \"BGM\": {\"Genre\": null, \"Mood\": null, \"Instrument\": null, \"Theme\": null, \"ENV\": null, \"SNR\": null}, \"IP\": \"灵小柔\"}]}"
+                    }
+                },
+                "灵小柔": {
+                    "options": {
+                        "template_name": "freeform",
+                        "instruct": "{\"audio_sequence\": [{\"序号\": 1, \"说话人\": \"speaker_1\", \"方言\": null, \"风格\": null, \"语速\": null, \"基频\": null, \"音量\": null, \"情感\": null, \"BGM\": {\"Genre\": null, \"Mood\": null, \"Instrument\": null, \"Theme\": null, \"ENV\": null, \"SNR\": null}, \"IP\": \"灵小柔\"}]}"
+                    }
+                },
+                "alloy": {
+                    "options": {
+                        "template_name": "freeform",
+                        "instruct": "{\"audio_sequence\": [{\"序号\": 1, \"说话人\": \"speaker_1\", \"方言\": null, \"风格\": null, \"语速\": null, \"基频\": null, \"音量\": null, \"情感\": null, \"BGM\": {\"Genre\": null, \"Mood\": null, \"Instrument\": null, \"Theme\": null, \"ENV\": null, \"SNR\": null}, \"IP\": \"灵小柔\"}]}"
+                    }
+                },
+                "uncond": {
+                    "options": {
+                        "template_name": "tts"
+                    }
+                },
+                "emma": {
+                    "voice_id": "US_Emma",
+                    "options": {
+                        "template_name": "ip"
+                    }
+                },
+                "james": {
+                    "voice_id": "US_James",
+                    "options": {
+                        "template_name": "ip"
+                    }
+                }
+            }
+        },
+        {
+            "id": "ming3-tts",
+            "family": "ming3_tts",
+            "path": "../models/ming-3.0-tts-0.5b-q8_0.gguf",
+            "task": "tts",
+            "mode": "offline",
+            "lazy": true,
+            "default_voice_preset": "lingxiaorou",
+            "voice_presets": {
+                "lingxiaorou": {
+                    "options": {
+                        "template_name": "freeform",
+                        "instruct": "{\"audio_sequence\": [{\"序号\": 1, \"说话人\": \"speaker_1\", \"方言\": null, \"风格\": null, \"语速\": null, \"基频\": null, \"音量\": null, \"情感\": null, \"BGM\": {\"Genre\": null, \"Mood\": null, \"Instrument\": null, \"Theme\": null, \"ENV\": null, \"SNR\": null}, \"IP\": \"灵小柔\"}]}"
+                    }
+                },
+                "灵小柔": {
+                    "options": {
+                        "template_name": "freeform",
+                        "instruct": "{\"audio_sequence\": [{\"序号\": 1, \"说话人\": \"speaker_1\", \"方言\": null, \"风格\": null, \"语速\": null, \"基频\": null, \"音量\": null, \"情感\": null, \"BGM\": {\"Genre\": null, \"Mood\": null, \"Instrument\": null, \"Theme\": null, \"ENV\": null, \"SNR\": null}, \"IP\": \"灵小柔\"}]}"
+                    }
+                },
+                "alloy": {
+                    "options": {
+                        "template_name": "freeform",
+                        "instruct": "{\"audio_sequence\": [{\"序号\": 1, \"说话人\": \"speaker_1\", \"方言\": null, \"风格\": null, \"语速\": null, \"基频\": null, \"音量\": null, \"情感\": null, \"BGM\": {\"Genre\": null, \"Mood\": null, \"Instrument\": null, \"Theme\": null, \"ENV\": null, \"SNR\": null}, \"IP\": \"灵小柔\"}]}"
+                    }
+                },
+                "uncond": {
+                    "options": {
+                        "template_name": "tts"
+                    }
+                },
+                "emma": {
+                    "voice_id": "US_Emma",
+                    "options": {
+                        "template_name": "ip"
+                    }
+                },
+                "james": {
+                    "voice_id": "US_James",
+                    "options": {
+                        "template_name": "ip"
+                    }
+                }
+            }
+        }
+    ]
+}

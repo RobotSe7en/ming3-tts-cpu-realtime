@@ -1,0 +1,38 @@
+[Unit]
+Description=Ming-3.0-TTS 0.5B Real-Time x86 CPU Server (Plan A)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/ming3-tts-cpu-realtime/.cache/audio.cpp
+ExecStart=/path/to/ming3-tts-cpu-realtime/.cache/bench-build/ming3_fast_server --config /path/to/ming3-tts-cpu-realtime/deploy/server.json
+
+# Thread & library caps (4 physical cores recommended)
+Environment=OMP_NUM_THREADS=4
+Environment=OMP_THREAD_LIMIT=4
+Environment=OMP_DYNAMIC=FALSE
+Environment=OPENBLAS_NUM_THREADS=4
+Environment=MKL_NUM_THREADS=4
+
+# Plan A: AR=Q8_0 (upstream BF16 casts intact via auto) + Flow/Agg=q4g128 + VAE=q4_0 + 8-step full CFG=2.0
+Environment=MING_FLOW_QUANT=q4g128
+Environment=MING_AGG_QUANT=q4g128
+Environment=MING_AR_QUANT=q8
+Environment=MING_VAE_QUANT=q4_0
+Environment=MING_FLOW_STEPS=8
+Environment=MING_CFG_INTERVAL=1
+Environment=MING_REUSE_ANCHOR_LATENT=1
+
+# Host resource caps
+CPUQuota=400%
+MemoryMax=4G
+MemorySwapMax=0
+TasksMax=256
+Nice=10
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
