@@ -1,6 +1,6 @@
 # Ming-3.0-TTS 0.5B Real-Time x86 CPU Optimization (`RTF < 1.0`)
 
-[English](README.md) | [中文说明](README_ZH.md) | [Full Experiment Log](docs/experiments.md)
+[English](README.md) | [中文说明](README_ZH.md) | [▶ Online A/B Audio Demo](https://robotse7en.github.io/ming3-tts-cpu-realtime/) | [Full Experiment Log](docs/experiments.md)
 
 Achieving **real-time (`RTF 0.79–0.95`)** neural TTS synthesis for **Ming-3.0-TTS 0.5B** on a 6-year-old 4-core desktop CPU (**Intel Core i3-10100 @ 3.60 GHz** inside a TrueNAS Linux VM, 4 threads, no discrete GPU, no iGPU passthrough) — using the **existing official `Q8_0` GGUF checkpoint** with load-time weight repacking (~2.3s), zero swap, and up to **46% lower peak RAM**.
 
@@ -10,31 +10,45 @@ Built as a clean, replayable patch and C++ AVX2 microkernel suite on top of [`0x
 
 ## Headline ABBA Benchmark Results
 
-All numbers below are from sequential **ABBA** comparisons (`baseline → fast → fast → baseline`, 1 warmup + 2 measured runs per block = 4 measured runs per variant) inside identical `systemd-run` resource limits (**4 threads, `CPUQuota=400%`, `MemoryMax=6G`, `MemorySwapMax=0`**). Audio hashes are verified bitwise-deterministic across repeated runs and blocks.
+All benchmarks use sequential **ABBA** blocks (`baseline → fast → fast → baseline`, 1 warmup + 2 runs/block = 4 measured runs/variant) under identical `systemd-run` limits (**4 threads, `CPUQuota=400%`, `MemoryMax=6G`, `MemorySwapMax=0`**). Repeated runs are bitwise-deterministic (verified via WAV SHA-256).
 
-### 1. Three Operating Modes (Same Binary, Same `Q8_0` GGUF)
+### 1. Operating Modes Comparison (Same Binary, Same `Q8_0` GGUF)
 
-| Mode | Configuration | Short (`zh_short.txt`) Median RTF | Long Paragraph (107 chars, auto-chunked) Median RTF | `灵小柔` IP Voice (30 chars) Median RTF | Peak RSS (Long) | Notes |
-| --- | --- | ---: | ---: | ---: | ---: | --- |
-| **Upstream Baseline** | Unmodified `audio.cpp` (`Q8_0`, 10-step CFG=2.0) | `1.69–1.82` | `1.91–1.99` | `1.8066` | `1.98 GiB` | Reference baseline |
-| **Plan A (Recommended — High Quality)** | `AR=q8` (fused FP32 act) + `Flow/Agg=q4g64` (8-step sway, full CFG) + `VAE=q4_0` | **`0.8717`** (**1.94×**) | **`0.9327`** (**2.05×**) | **`0.9525`** (**1.90×**) | **`1.25 GiB`** (-37%) | **Best listening fidelity**: `0.0000` CER across all 4 suites, `0.9539` speaker cosine on `灵小柔`, zero chunk-2 artifacts |
-| **Plan B (Fastest / Lowest RAM)** | `AR=q4_0` + `Flow/Agg=q4g64` (8-step sway, full CFG) + `VAE=q4_0` | **`0.7884`** (**2.18×**) | **`0.8747`** (**2.25×**) | `0.8674`* | **`1.09 GiB`** (-45%) | Maximum RTF margin & lowest memory; `0.0000` clipping; best for single-chunk / fixed-voice workloads |
-| **Plan C (Exact 10-Step Schedule)** | `AR=q4_0` + `Flow/Agg=q4g128` (exact official 10-step, full CFG) + `VAE=q4_0` | **`0.8917`** (**2.05×**) | **`0.9881`** (**2.01×**) | — | **`1.07 GiB`** (-46%) | Zero sampling schedule changes (`flow_steps=10`, full CFG=2.0 on every step) |
+| Mode | Short (4s) | Long (21s) | `灵小柔` (6s) | Peak RAM | Highlight |
+| --- | ---: | ---: | ---: | ---: | --- |
+| **Baseline** (`Q8_0`) | `1.69–1.82` | `1.91–1.99` | `1.81` | `1.98 GiB` | Upstream reference |
+| **Plan A** ⭐ | **`0.87`** (1.94×) | **`0.93`** (2.05×) | **`0.95`** (1.90×) | **`1.25 GiB`** (-37%) | **Recommended** · Best audio fidelity |
+| **Plan B** | **`0.79`** (2.18×) | **`0.87`** (2.25×) | `0.87`* | **`1.09 GiB`** (-45%) | Max speed & lowest memory |
+| **Plan C** | **`0.89`** (2.05×) | **`0.99`** (2.01×) | — | **`1.07 GiB`** (-46%) | Exact official 10-step schedule |
 
-*\*Single-run measurement for Plan B on `灵小柔` 30-char (`CER=0.0000`, `clip=0.000000`, speaker cosine `0.8501`).*
+- **Plan A (Recommended — High Quality)**: `AR=q8` (`--fused-fp32-act 1`) + `Flow/Agg=q4g64` (8-step sway, full CFG) + `VAE=q4_0`. Achieves `0.0000` ASR CER across all 4 suites, `0.9539` speaker cosine on `灵小柔`, and zero chunk-2 artifacts.
+- **Plan B (Fastest / Lowest RAM)**: `AR=q4_0` + `Flow/Agg=q4g64` (8-step sway, full CFG) + `VAE=q4_0`. Maximum RTF margin and lowest memory; `0.0000` clipping (*`灵小柔` 30-char is single-run: `CER=0.0000`, cosine `0.8501`).
+- **Plan C (Exact 10-Step)**: `AR=q4_0` + `Flow/Agg=q4g128` (official 10-step, full CFG) + `VAE=q4_0`. Zero sampling schedule changes.
 
-### 2. Plan A (`AR=q8`, Recommended) Detailed ABBA & Automated Screening
+### 2. Plan A (`AR=q8`) Detailed ABBA & Automated Screening
 
-| Fixture | Baseline Median RTF | Plan A Median RTF | Plan A 4-Run Distribution | Speedup | Peak RSS (Base → Plan A) | ASR CER (Base → Plan A) | CAMPPlus Speaker Cosine | Clipping |
-| --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |
-| `zh_short.txt` (4.0s) | `1.6940` | **`0.8717`** | `0.9018, 0.8599, 0.8787, 0.8647` | **1.94×** | `1.33 → 1.24 GiB` | `0.0000 → 0.0000` | `0.8579` (uncond) | `0.000000` |
-| `zh_paragraph.txt` (107 chars, 20.9s) | `1.9088` | **`0.9327`** | `0.9292, 0.9333, 0.9365, 0.9321` | **2.05×** | `1.98 → 1.25 GiB` | `0.0625 → 0.0000` | `0.8785` (uncond) | `0.000039` |
-| `zh_lingxiaorou_short.txt` (`灵小柔`, 6.0s) | `1.8066` | **`0.9525`** | `0.9531, 0.9488, 0.9716, 0.9519` | **1.90×** | `1.35 → 1.24 GiB` | `0.0000 → 0.0000` | **`0.9539`** (`review_flag=false`) | `0.000000` |
-| `zh_paragraph.txt` (`灵小柔`, 18.5s)¹ | `2.0229` | `1.0766`¹ | `1.0307, 1.0146, 1.1226, 1.1655` | **1.88×** | `1.97 → 1.26 GiB` | `0.0000 → 0.0000` | **`0.9166`** (`review_flag=false`) | `0.000000` |
-| `zh_regression.txt` (single run) | `1.6888` | **`0.8861`** | `0.8861` | **1.91×** | `1.32 → 1.24 GiB` | — | — | — |
-| `zh_long_regression.txt` (single run) | `1.8672` | **`0.9004`** | `0.9004` | **2.07×** | `1.93 → 1.25 GiB` | — | — | — |
+| Fixture | Baseline | Plan A | Speedup | Peak RAM | CER / Cosine |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `zh_short` (4.0s) | `1.694` | **`0.872`** | **1.94×** | `1.33 → 1.24 GiB` | `0.00` / `0.858` |
+| `zh_paragraph` (20.9s) | `1.909` | **`0.933`** | **2.05×** | `1.98 → 1.25 GiB` | `0.00` / `0.879` |
+| `灵小柔` 30c (6.0s) | `1.807` | **`0.953`** | **1.90×** | `1.35 → 1.24 GiB` | `0.00` / **`0.954`** ✓ |
+| `灵小柔` 107c (18.5s)¹ | `2.023` | `1.077`¹ | **1.88×** | `1.97 → 1.26 GiB` | `0.00` / **`0.917`** ✓ |
 
-> ¹ In pinned `audio.cpp` `7d20b414`, `灵小柔` is passed via `template_name=freeform` (bypassing the older English-only `voice_id` enum validator), which does not set `controls["ip"]` and therefore still triggers redundant chunk-1 voice anchoring on multi-chunk text plus ~55 extra JSON tokens per chunk; on newer `audio.cpp` builds with native `template_name=ip, voice_id=灵小柔`, chunk anchoring is skipped automatically.
+<details>
+<summary>Full 4-run RTF distributions, clipping stats, and extra regression fixtures</summary>
+
+| Fixture | Baseline | Plan A | Plan A 4 Runs | Base → Plan A CER | Clipping |
+| --- | ---: | ---: | --- | ---: | ---: |
+| `zh_short.txt` | `1.6940` | `0.8717` | `0.9018, 0.8599, 0.8787, 0.8647` | `0.0000 → 0.0000` | `0.000000` |
+| `zh_paragraph.txt` | `1.9088` | `0.9327` | `0.9292, 0.9333, 0.9365, 0.9321` | `0.0625 → 0.0000` | `0.000039` |
+| `zh_lingxiaorou_short.txt` | `1.8066` | `0.9525` | `0.9531, 0.9488, 0.9716, 0.9519` | `0.0000 → 0.0000` | `0.000000` |
+| `zh_paragraph.txt` (`灵小柔`) | `2.0229` | `1.0766` | `1.0307, 1.0146, 1.1226, 1.1655` | `0.0000 → 0.0000` | `0.000000` |
+| `zh_regression.txt` (1×) | `1.6888` | `0.8861` | `0.8861` (1.91×) | — | — |
+| `zh_long_regression.txt` (1×) | `1.8672` | `0.9004` | `0.9004` (2.07×) | — | — |
+
+</details>
+
+> ¹ In pinned `audio.cpp` `7d20b414`, `灵小柔` is passed via `template_name=freeform` (bypassing the older English-only `voice_id` enum validator), which does not set `controls["ip"]` and therefore still triggers redundant chunk-1 voice anchoring on multi-chunk text plus ~55 extra JSON tokens per chunk.
 
 Sanitized JSON reports for all ABBA runs and SenseVoice INT8 ASR + CAMPPlus quality screenings live in [`benchmarks/published_results/`](benchmarks/published_results/). Automated ASR/speaker metrics are screening tools, not a formal human MOS test.
 
@@ -42,15 +56,17 @@ Sanitized JSON reports for all ABBA runs and SenseVoice INT8 ASR + CAMPPlus qual
 
 ## Audio Samples (A/B Comparisons)
 
-Unedited 44.1 kHz PCM16 outputs from the exact ABBA runs above (hosted as [GitHub Release `audio-samples`](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/tag/audio-samples) assets to keep the Git repository lightweight):
+> **▶ [Open Interactive Online A/B Player (Click-to-Play, No Download)](https://robotse7en.github.io/ming3-tts-cpu-realtime/)**
+>
+> GitHub README strips `<audio>` tags, so we host a zero-download browser A/B player on GitHub Pages alongside lossless 44.1 kHz WAV & waveform MP4 downloads in [Release `audio-samples`](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/tag/audio-samples).
 
-| Sample | Voice & Text | A: Upstream Baseline (`Q8_0`) | B: Plan A Real-Time (`AR=q8`, `Flow=q4g64`) | Side-by-Side A/B Video | Metrics |
-| --- | --- | --- | --- | --- | --- |
-| **1. Short IP Voice** | Built-in `灵小柔` (30 chars, 6.0s) | [Baseline WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_baseline_q8.wav) (`RTF 1.81`) | [Plan A WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_planA_ar_q8_rtf095.wav) (**`RTF 0.95`**) | [A/B Waveform MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_30c.mp4) | **1.90×**, CER `0.0000`, Cosine **`0.9539`** |
-| **2. Long Paragraph (Uncond)** | Auto-chunked (107 chars, 20.9s) | [Baseline WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_baseline_q8.wav) (`RTF 1.91`) | [Plan A WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_planA_ar_q8_rtf093.wav) (**`RTF 0.93`**) | [A/B Waveform MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_uncond_107c.mp4) | **2.05×**, CER `0.0000`, Peak RSS `-37%` |
-| **3. Long Paragraph (`灵小柔`)** | Built-in `灵小柔` (107 chars, 18.5s) | [Baseline WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_baseline_q8.wav) (`RTF 2.02`) | [Plan A WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_planA_ar_q8.wav) (`RTF 1.08`¹) | [A/B Waveform MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_107c.mp4) | **1.88×**, CER `0.0000`, Cosine **`0.9166`** |
+| Sample | A: Baseline (`Q8_0`) | B: Plan A Real-Time | Summary |
+| --- | --- | --- | --- |
+| **1. `灵小柔` Short** (30c, 6s) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_baseline_q8.wav) (`1.81`) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_planA_ar_q8_rtf095.wav) (**`0.95`**) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_30c.mp4) | **1.90×** · Cos **`0.954`** |
+| **2. Paragraph** (107c, 21s) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_baseline_q8.wav) (`1.91`) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_planA_ar_q8_rtf093.wav) (**`0.93`**) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_uncond_107c.mp4) | **2.05×** · RAM `-37%` |
+| **3. `灵小柔` Long** (107c, 19s) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_baseline_q8.wav) (`2.02`) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_planA_ar_q8.wav) (`1.08`¹) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_107c.mp4) | **1.88×** · Cos **`0.917`** |
 
-> **Tip**: All samples were synthesized deterministically with `seed=1895`, 4 CPU threads, and zero post-processing.
+All samples are unedited 44.1 kHz PCM16 outputs (`seed=1895`, 4 CPU threads, zero post-processing).
 
 ---
 

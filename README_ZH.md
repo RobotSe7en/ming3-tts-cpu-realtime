@@ -1,6 +1,6 @@
 # Ming-3.0-TTS 0.5B x86 CPU 实时推理优化（`RTF < 1.0`）
 
-[English](README.md) | [中文说明](README_ZH.md) | [完整实验演进记录](docs/experiments.md)
+[English](README.md) | [中文说明](README_ZH.md) | [▶ 在线 A/B 音频试听](https://robotse7en.github.io/ming3-tts-cpu-realtime/) | [完整实验演进记录](docs/experiments.md)
 
 在一台 6 年前的入门级 4 核桌面 CPU（**Intel Core i3-10100 @ 3.60 GHz**，TrueNAS Linux 虚拟机，仅 4 线程、无独显、无核显直通）上，将 **Ming-3.0-TTS 0.5B** 纯 CPU 推理从原版 `RTF 1.72–1.99` 优化至 **`RTF 0.79–0.95`（快于实时播放）**——直接复用官方 **`Q8_0` GGUF** 权重（加载期并行重排约 `2.3 秒`，无需另转模型），零 swap，峰值内存最高降低 **46%**。
 
@@ -10,31 +10,45 @@
 
 ## 核心 ABBA 对照结果
 
-以下全部数据均在一致的 `systemd-run` 资源约束下（**4 线程、`CPUQuota=400%`、`MemoryMax=6G`、`MemorySwapMax=0`**）按 **ABBA** 交替顺序测得（`原版 → 优化版 → 优化版 → 原版`，每块预热 1 次、测量 2 次，每组累计 4 次正式测量）；单次及跨块生成的 WAV 均通过逐字节 SHA-256 确定性校验。
+全部测试在一致的 `systemd-run` 资源约束下（**4 线程、`CPUQuota=400%`、`MemoryMax=6G`、`MemorySwapMax=0`**）按 **ABBA** 交替顺序测得（每块预热 1 次、测 2 次，每版累计 4 次正式测量），重复运行 WAV SHA-256 逐字节确定性一致。
 
 ### 一、三套 `RTF ≤ 1` 运行方案（同一二进制、同一份 `Q8_0` GGUF）
 
-| 方案 | 核心配置 | 短句 (`zh_short.txt`) 中位 RTF | 107 字自动分块长段落 中位 RTF | `灵小柔` 30 字短句 中位 RTF | 长段落峰值 RSS | 特点与适用场景 |
-| --- | --- | ---: | ---: | ---: | ---: | --- |
-| **原版基线** | 未修改 `audio.cpp`（`Q8_0`，10 步全步 CFG） | `1.69–1.82` | `1.91–1.99` | `1.8066` | `1.98 GiB` | 对照基线 |
-| **方案 A（推荐：高音质均衡版）** | `AR=q8`（融合 FP32 激活）+ `Flow/Agg=q4g64`（8 步 sway，全步 CFG）+ `VAE=q4_0` | **`0.8717`**（**1.94×**） | **`0.9327`**（**2.05×**） | **`0.9525`**（**1.90×**） | **`1.25 GiB`**（-37%） | **实听音质最好**：四组测试全部 `0.0000` CER，`灵小柔` 说话人余弦 **`0.9539`**，无长文第 2 段金属感 |
-| **方案 B（极速 / 最低内存版）** | `AR=q4_0` + `Flow/Agg=q4g64`（8 步 sway，全步 CFG）+ `VAE=q4_0` | **`0.7884`**（**2.18×**） | **`0.8747`**（**2.25×**） | `0.8674`* | **`1.09 GiB`**（-45%） | 速度最快、抗抖动裕度最大、零削波；适合短句或固定音色场景 |
-| **方案 C（完整 10 步官方采样版）** | `AR=q4_0` + `Flow/Agg=q4g128`（官方完整 10 步，全步 CFG）+ `VAE=q4_0` | **`0.8917`**（**2.05×**） | **`0.9881`**（**2.01×**） | — | **`1.07 GiB`**（-46%） | 不改动任何采样步数与 CFG 策略，纯靠引擎与 4-bit 访存压进 1.0 |
+| 方案 | 短句 (4s) | 长段 (21s) | `灵小柔` (6s) | 峰值内存 | 定位 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| **原版基线** (`Q8_0`) | `1.69–1.82` | `1.91–1.99` | `1.81` | `1.98 GiB` | 上游对照 |
+| **方案 A** ⭐ | **`0.87`** (1.94×) | **`0.93`** (2.05×) | **`0.95`** (1.90×) | **`1.25 GiB`** (-37%) | **默认推荐** · 音质最佳 |
+| **方案 B** | **`0.79`** (2.18×) | **`0.87`** (2.25×) | `0.87`* | **`1.09 GiB`** (-45%) | 极限速度 / 最低内存 |
+| **方案 C** | **`0.89`** (2.05×) | **`0.99`** (2.01×) | — | **`1.07 GiB`** (-46%) | 保留完整 10 步官方采样 |
 
-*\*方案 B 在 `灵小柔` 30 字短句为单次测量（`CER=0.0000`，`clip=0.000000`，说话人余弦 `0.8501`）。*
+- **方案 A（推荐：高音质均衡版）**：`AR=q8`（`--fused-fp32-act 1`）+ `Flow/Agg=q4g64`（8 步 sway，全步 CFG）+ `VAE=q4_0`。四组测试全部 `0.0000` CER，`灵小柔` 说话人余弦 **`0.9539`**，彻底消除长文第 2 段金属音。
+- **方案 B（极速 / 最低内存版）**：`AR=q4_0` + `Flow/Agg=q4g64`（8 步 sway，全步 CFG）+ `VAE=q4_0`。速度最快、抗抖动裕度最大、零削波（*`灵小柔` 30 字为单次测量：`CER=0.0000`，余弦 `0.8501`）。
+- **方案 C（完整 10 步官方采样版）**：`AR=q4_0` + `Flow/Agg=q4g128`（官方 10 步，全步 CFG）+ `VAE=q4_0`。不改动采样步数与 CFG 策略。
 
-### 二、主推荐方案 A（`AR=q8`）完整 ABBA 与自动质量筛查明细
+### 二、主推荐方案 A（`AR=q8`）ABBA 明细与自动质量筛查
 
-| 测试集 | 原版 RTF 中位数 | 方案 A RTF 中位数 | 方案 A 四次 RTF 分布 | 加速比 | 峰值 RSS（原版 → 方案 A） | ASR CER（原版 → 方案 A） | CAMPPlus 音色余弦 | 削波比例 |
-| --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |
-| `zh_short.txt`（4.0s） | `1.6940` | **`0.8717`** | `0.9018, 0.8599, 0.8787, 0.8647` | **1.94×** | `1.33 → 1.24 GiB` | `0.0000 → 0.0000` | `0.8579`（无参考） | `0.000000` |
-| `zh_paragraph.txt`（107 字，20.9s） | `1.9088` | **`0.9327`** | `0.9292, 0.9333, 0.9365, 0.9321` | **2.05×** | `1.98 → 1.25 GiB` | `0.0625 → 0.0000` | `0.8785`（无参考） | `0.000039` |
-| `zh_lingxiaorou_short.txt`（`灵小柔`，6.0s） | `1.8066` | **`0.9525`** | `0.9531, 0.9488, 0.9716, 0.9519` | **1.90×** | `1.35 → 1.24 GiB` | `0.0000 → 0.0000` | **`0.9539`**（通过） | `0.000000` |
-| `zh_paragraph.txt`（`灵小柔`，18.5s）¹ | `2.0229` | `1.0766`¹ | `1.0307, 1.0146, 1.1226, 1.1655` | **1.88×** | `1.97 → 1.26 GiB` | `0.0000 → 0.0000` | **`0.9166`**（通过） | `0.000000` |
-| `zh_regression.txt`（单次回归） | `1.6888` | **`0.8861`** | `0.8861` | **1.91×** | `1.32 → 1.24 GiB` | — | — | — |
-| `zh_long_regression.txt`（单次回归） | `1.8672` | **`0.9004`** | `0.9004` | **2.07×** | `1.93 → 1.25 GiB` | — | — | — |
+| 测试集 | 原版 RTF | 方案 A RTF | 加速比 | 峰值内存 | CER / 音色余弦 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 短句 `zh_short` (4.0s) | `1.694` | **`0.872`** | **1.94×** | `1.33 → 1.24 GiB` | `0.00` / `0.858` |
+| 长段 `zh_paragraph` (20.9s) | `1.909` | **`0.933`** | **2.05×** | `1.98 → 1.25 GiB` | `0.00` / `0.879` |
+| `灵小柔` 30 字 (6.0s) | `1.807` | **`0.953`** | **1.90×** | `1.35 → 1.24 GiB` | `0.00` / **`0.954`** ✓ |
+| `灵小柔` 107 字 (18.5s)¹ | `2.023` | `1.077`¹ | **1.88×** | `1.97 → 1.26 GiB` | `0.00` / **`0.917`** ✓ |
 
-> ¹ 在固定版本 `7d20b414` 中，`灵小柔` 通过 `template_name=freeform` 传入（绕过旧版仅含英文音色的 `voice_id` 枚举校验），不会置位 `controls["ip"]`，因此长文本仍多跑了首段重锚定且每块多约 55 个 JSON token；在新版原生支持 `template_name=ip, voice_id=灵小柔` 的 `audio.cpp` 中会自动跳过首段重锚定，长文本速度会更快。
+<details>
+<summary>展开查看完整 4 次 RTF 分布、削波比例与回归测试结果</summary>
+
+| 测试集 | 原版 | 方案 A | 方案 A 4 次分布 | 原版 → 方案 A CER | 削波比例 |
+| --- | ---: | ---: | --- | ---: | ---: |
+| `zh_short.txt` | `1.6940` | `0.8717` | `0.9018, 0.8599, 0.8787, 0.8647` | `0.0000 → 0.0000` | `0.000000` |
+| `zh_paragraph.txt` | `1.9088` | `0.9327` | `0.9292, 0.9333, 0.9365, 0.9321` | `0.0625 → 0.0000` | `0.000039` |
+| `zh_lingxiaorou_short.txt` | `1.8066` | `0.9525` | `0.9531, 0.9488, 0.9716, 0.9519` | `0.0000 → 0.0000` | `0.000000` |
+| `zh_paragraph.txt`（`灵小柔`） | `2.0229` | `1.0766` | `1.0307, 1.0146, 1.1226, 1.1655` | `0.0000 → 0.0000` | `0.000000` |
+| `zh_regression.txt`（单次） | `1.6888` | `0.8861` | `0.8861`（1.91×） | — | — |
+| `zh_long_regression.txt`（单次） | `1.8672` | `0.9004` | `0.9004`（2.07×） | — | — |
+
+</details>
+
+> ¹ 在固定版本 `7d20b414` 中，`灵小柔` 通过 `template_name=freeform` 传入（绕过旧版仅含英文音色的 `voice_id` 枚举校验），不会置位 `controls["ip"]`，因此长文本仍多跑了首段重锚定且每块多约 55 个 JSON token。
 
 全部脱敏后的 ABBA 汇总与 SenseVoice INT8 ASR + CAMPPlus 筛查 JSON 保存在 [`benchmarks/published_results/`](benchmarks/published_results/)。自动化 ASR 与说话人余弦仅用于回归筛查，不等同于正式人工 MOS 评测。
 
@@ -42,15 +56,17 @@
 
 ## 音频示例（原版 vs 方案 A 实听对比）
 
-以下均为上述正式 ABBA 压测直接输出的未后期 44.1 kHz PCM16 原始音频（托管在 [GitHub Release `audio-samples`](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/tag/audio-samples)，避免大体积音频污染 Git 仓库）：
+> **▶ [打开在线 A/B 音频试听页（浏览器直接点播，无需下载）](https://robotse7en.github.io/ming3-tts-cpu-realtime/)**
+>
+> 由于 GitHub README 会过滤 `<audio>` 标签，我们在 GitHub Pages 提供了免下载在线 A/B 对比播放器，同时在 [Release `audio-samples`](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/tag/audio-samples) 保留原始 44.1 kHz 无损 WAV 与波形对比视频下载。
 
-| 示例 | 音色与文本 | A：原版基线（`Q8_0`） | B：方案 A 实时版（`AR=q8`, `Flow=q4g64`） | A/B 波形对比视频 | 关键指标 |
-| --- | --- | --- | --- | --- | --- |
-| **1. 短句（推荐试听）** | 内置「灵小柔」（30 字，6.0s） | [原版 WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_baseline_q8.wav)（`RTF 1.81`） | [方案 A WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_planA_ar_q8_rtf095.wav)（**`RTF 0.95`**） | [A/B 对比 MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_30c.mp4) | **1.90×**，CER `0.0000`，余弦 **`0.9539`** |
-| **2. 长段落（无参考）** | 自动分块（107 字，20.9s） | [原版 WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_baseline_q8.wav)（`RTF 1.91`） | [方案 A WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_planA_ar_q8_rtf093.wav)（**`RTF 0.93`**） | [A/B 对比 MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_uncond_107c.mp4) | **2.05×**，CER `0.0000`，峰值内存 `-37%` |
-| **3. 长段落（「灵小柔」）** | 内置「灵小柔」（107 字，18.5s） | [原版 WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_baseline_q8.wav)（`RTF 2.02`） | [方案 A WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_planA_ar_q8.wav)（`RTF 1.08`¹） | [A/B 对比 MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_107c.mp4) | **1.88×**，CER `0.0000`，余弦 **`0.9166`** |
+| 示例 | A：原版基线（`Q8_0`） | B：方案 A 实时版 | 对比指标 |
+| --- | --- | --- | --- |
+| **1. `灵小柔` 短句**（30 字，6s） | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_baseline_q8.wav)（`1.81`） | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_planA_ar_q8_rtf095.wav)（**`0.95`**）· [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_30c.mp4) | **1.90×** · 余弦 **`0.954`** |
+| **2. 长段落无参考**（107 字，21s） | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_baseline_q8.wav)（`1.91`） | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_planA_ar_q8_rtf093.wav)（**`0.93`**）· [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_uncond_107c.mp4) | **2.05×** · 内存 `-37%` |
+| **3. `灵小柔` 长段落**（107 字，19s） | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_baseline_q8.wav)（`2.02`） | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_planA_ar_q8.wav)（`1.08`¹）· [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_107c.mp4) | **1.88×** · 余弦 **`0.917`** |
 
-> 说明：所有样本均在 4 线程 CPU、固定种子 `1895` 下确定性生成，未做任何降噪、响度归一化或后期剪辑。
+所有样本均在 4 线程 CPU、固定种子 `1895` 下确定性生成，未做任何后期处理。
 
 ---
 
