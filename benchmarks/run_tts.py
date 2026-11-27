@@ -193,10 +193,13 @@ def main(default_family='ming3_tts'):
         metadata['reference_text'] = reference_text.read_text().strip()
         metadata['reference_cache'] = 'default; identical reference reused for warmup and measured runs'
     if args.profile:
-        metadata['stage_timing_patch'] = (ROOT / 'benchmarks/ming3_stage_timing.patch').read_text()
         metadata['stage_timer_header'] = (ROOT / 'benchmarks/tts_stage_timer.h').read_text()
-        metadata['profile_worktree_changes'] = capture(
-            'git', '-C', str(ROOT / '.cache/audio.cpp-profile'), 'diff')
+        stage_patch = ROOT / 'benchmarks/ming3_stage_timing.patch'
+        if stage_patch.is_file():
+            metadata['stage_timing_patch'] = stage_patch.read_text()
+        if (ROOT / '.cache/audio.cpp-profile').is_dir():
+            metadata['profile_worktree_changes'] = capture(
+                'git', '-C', str(ROOT / '.cache/audio.cpp-profile'), 'diff')
     if args.variant == 'cpu-opt':
         metadata['cpu_optimization_patch'] = capture(
             'git', '-C', str(ROOT / '.cache/audio.cpp-ming-opt'), 'diff')
