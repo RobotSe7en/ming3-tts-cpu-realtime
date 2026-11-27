@@ -5,8 +5,8 @@ Wants=ming3-tts.service
 
 [Service]
 Type=simple
-WorkingDirectory=/path/to/ming3-tts-cpu-realtime
-ExecStart=/usr/bin/python3 /path/to/ming3-tts-cpu-realtime/deploy/tts_gateway.py --host 0.0.0.0 --port 8080 --backend-host 127.0.0.1 --backend-port 18080
+WorkingDirectory=/path/to/ming3-tts.cpp
+ExecStart=/usr/bin/python3 /path/to/ming3-tts.cpp/deploy/tts_gateway.py --host 0.0.0.0 --port 8080 --backend-host 127.0.0.1 --backend-port 18080
 
 CPUQuota=100%
 MemoryMax=512M

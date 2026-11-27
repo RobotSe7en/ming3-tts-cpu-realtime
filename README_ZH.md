@@ -1,6 +1,6 @@
-# Ming-3.0-TTS 0.5B x86 CPU 实时推理优化（`RTF < 1.0`）
+# ming3-tts.cpp — Ming-3.0-TTS 0.5B x86 CPU 实时推理与流式服务（`RTF < 1.0`）
 
-[English](README.md) | [中文说明](README_ZH.md) | [▶ 在线 A/B 音频试听](https://robotse7en.github.io/ming3-tts-cpu-realtime/) | [完整实验演进记录](docs/experiments.md)
+[English](README.md) | [中文说明](README_ZH.md) | [▶ 在线 A/B 音频试听](https://robotse7en.github.io/ming3-tts.cpp/) | [部署文档](deploy/README.md) | [完整实验演进记录](docs/experiments.md)
 
 在一台 6 年前的入门级 4 核桌面 CPU（**Intel Core i3-10100 @ 3.60 GHz**，TrueNAS Linux 虚拟机，仅 4 线程、无独显、无核显直通）上，将 **Ming-3.0-TTS 0.5B** 纯 CPU 推理从原版 `RTF 1.72–2.08` 优化至 **`RTF 0.79–0.99`（快于实时播放）**——直接复用官方 **`Q8_0` GGUF** 权重（加载期并行重排约 `2.3 秒`，无需另转模型），零 swap，峰值内存最高降低 **46%**。
 
@@ -56,15 +56,15 @@
 
 ## 音频示例（原版 vs 方案 A 实听对比）
 
-> **▶ [打开在线 A/B 音频试听页（浏览器直接点播，无需下载）](https://robotse7en.github.io/ming3-tts-cpu-realtime/)**
+> **▶ [打开在线 A/B 音频试听页（浏览器直接点播，无需下载）](https://robotse7en.github.io/ming3-tts.cpp/)**
 >
-> 由于 GitHub README 会过滤 `<audio>` 标签，我们在 GitHub Pages 提供了免下载在线 A/B 对比播放器，同时在 [Release `audio-samples`](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/tag/audio-samples) 保留原始 44.1 kHz 无损 WAV 与波形对比视频下载。
+> 由于 GitHub README 会过滤 `<audio>` 标签，我们在 GitHub Pages 提供了免下载在线 A/B 对比播放器，同时在 [Release `audio-samples`](https://github.com/RobotSe7en/ming3-tts.cpp/releases/tag/audio-samples) 保留原始 44.1 kHz 无损 WAV 与波形对比视频下载。
 
 | 示例 | A：原版基线（`Q8_0`） | B：方案 A 实时版 | 对比指标 |
 | --- | --- | --- | --- |
-| **1. `灵小柔` 短句**（30 字，6s） | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_baseline_q8.wav)（`1.92`） | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_planA_ar_q8.wav)（**`0.97`**）· [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_30c.mp4) | **1.98×** · 余弦 **`0.934`** ✓ |
-| **2. `灵小柔` 长段落**（107 字，18s） | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_baseline_q8.wav)（`2.14`） | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_planA_ar_q8.wav)（`1.12`¹）· [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_107c.mp4) | **1.91×** · 余弦 **`0.938`** ✓ |
-| **3. 长段落无参考**（107 字，18s） | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_baseline_q8.wav)（`2.08`） | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_planA_ar_q8.wav)（**`0.99`**）· [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_uncond_107c.mp4) | **2.10×** · 内存 `-38%` |
+| **1. `灵小柔` 短句**（30 字，6s） | [WAV](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/01_lingxiaorou_30c_baseline_q8.wav)（`1.92`） | [WAV](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/01_lingxiaorou_30c_planA_ar_q8.wav)（**`0.97`**）· [A/B MP4](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/ab_demo_lingxiaorou_30c.mp4) | **1.98×** · 余弦 **`0.934`** ✓ |
+| **2. `灵小柔` 长段落**（107 字，18s） | [WAV](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/02_lingxiaorou_107c_baseline_q8.wav)（`2.14`） | [WAV](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/02_lingxiaorou_107c_planA_ar_q8.wav)（`1.12`¹）· [A/B MP4](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/ab_demo_lingxiaorou_107c.mp4) | **1.91×** · 余弦 **`0.938`** ✓ |
+| **3. 长段落无参考**（107 字，18s） | [WAV](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/03_uncond_107c_baseline_q8.wav)（`2.08`） | [WAV](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/03_uncond_107c_planA_ar_q8.wav)（**`0.99`**）· [A/B MP4](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/ab_demo_uncond_107c.mp4) | **2.10×** · 内存 `-38%` |
 
 所有样本均在 4 线程 CPU、固定种子 `1895` 下确定性生成，未做任何后期处理。
 
@@ -104,8 +104,8 @@
 ### 1. 一键初始化、编译与测试
 
 ```bash
-git clone https://github.com/RobotSe7en/ming3-tts-cpu-realtime.git
-cd ming3-tts-cpu-realtime
+git clone https://github.com/RobotSe7en/ming3-tts.cpp.git
+cd ming3-tts.cpp
 make setup      # 自动拉取固定版 audio.cpp 7d20b414、打补丁、下载校验 Q8_0 模型、编译并运行 CTest
 ```
 

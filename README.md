@@ -1,6 +1,6 @@
-# Ming-3.0-TTS 0.5B Real-Time x86 CPU Optimization (`RTF < 1.0`)
+# ming3-tts.cpp — Real-Time Ming-3.0-TTS 0.5B on x86 CPU (`RTF < 1.0`)
 
-[English](README.md) | [中文说明](README_ZH.md) | [▶ Online A/B Audio Demo](https://robotse7en.github.io/ming3-tts-cpu-realtime/) | [Full Experiment Log](docs/experiments.md)
+[English](README.md) | [中文说明](README_ZH.md) | [▶ Online A/B Audio Demo](https://robotse7en.github.io/ming3-tts.cpp/) | [Deploy Guide](deploy/README.md) | [Full Experiment Log](docs/experiments.md)
 
 Achieving **real-time (`RTF 0.79–0.99`)** neural TTS synthesis for **Ming-3.0-TTS 0.5B** on a 6-year-old 4-core desktop CPU (**Intel Core i3-10100 @ 3.60 GHz** inside a TrueNAS Linux VM, 4 threads, no discrete GPU, no iGPU passthrough) — using the **existing official `Q8_0` GGUF checkpoint** with load-time weight repacking (~2.3s), zero swap, and up to **46% lower peak RAM**.
 
@@ -56,15 +56,15 @@ Sanitized JSON reports for all ABBA runs and SenseVoice INT8 ASR + CAMPPlus qual
 
 ## Audio Samples (A/B Comparisons)
 
-> **▶ [Open Interactive Online A/B Player (Click-to-Play, No Download)](https://robotse7en.github.io/ming3-tts-cpu-realtime/)**
+> **▶ [Open Interactive Online A/B Player (Click-to-Play, No Download)](https://robotse7en.github.io/ming3-tts.cpp/)**
 >
-> GitHub README strips `<audio>` tags, so we host a zero-download browser A/B player on GitHub Pages alongside lossless 44.1 kHz WAV & waveform MP4 downloads in [Release `audio-samples`](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/tag/audio-samples).
+> GitHub README strips `<audio>` tags, so we host a zero-download browser A/B player on GitHub Pages alongside lossless 44.1 kHz WAV & waveform MP4 downloads in [Release `audio-samples`](https://github.com/RobotSe7en/ming3-tts.cpp/releases/tag/audio-samples).
 
 | Sample | A: Baseline (`Q8_0`) | B: Plan A Real-Time | Summary |
 | --- | --- | --- | --- |
-| **1. `灵小柔` Short** (30c, 6s) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_baseline_q8.wav) (`1.92`) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_planA_ar_q8.wav) (**`0.97`**) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_30c.mp4) | **1.98×** · Cos **`0.934`** ✓ |
-| **2. `灵小柔` Long** (107c, 18s) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_baseline_q8.wav) (`2.14`) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_planA_ar_q8.wav) (`1.12`¹) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_107c.mp4) | **1.91×** · Cos **`0.938`** ✓ |
-| **3. Paragraph** (107c, 18s) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_baseline_q8.wav) (`2.08`) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_planA_ar_q8.wav) (**`0.99`**) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_uncond_107c.mp4) | **2.10×** · RAM `-38%` |
+| **1. `灵小柔` Short** (30c, 6s) | [WAV](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/01_lingxiaorou_30c_baseline_q8.wav) (`1.92`) | [WAV](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/01_lingxiaorou_30c_planA_ar_q8.wav) (**`0.97`**) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/ab_demo_lingxiaorou_30c.mp4) | **1.98×** · Cos **`0.934`** ✓ |
+| **2. `灵小柔` Long** (107c, 18s) | [WAV](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/02_lingxiaorou_107c_baseline_q8.wav) (`2.14`) | [WAV](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/02_lingxiaorou_107c_planA_ar_q8.wav) (`1.12`¹) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/ab_demo_lingxiaorou_107c.mp4) | **1.91×** · Cos **`0.938`** ✓ |
+| **3. Paragraph** (107c, 18s) | [WAV](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/03_uncond_107c_baseline_q8.wav) (`2.08`) | [WAV](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/03_uncond_107c_planA_ar_q8.wav) (**`0.99`**) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/ab_demo_uncond_107c.mp4) | **2.10×** · RAM `-38%` |
 
 All samples are unedited 44.1 kHz PCM16 outputs (`seed=1895`, 4 CPU threads, zero post-processing).
 
@@ -120,8 +120,8 @@ flowchart LR
 ### 1. One-Command Standalone Setup (Fetch, Patch, Download, Build & Test)
 
 ```bash
-git clone https://github.com/RobotSe7en/ming3-tts-cpu-realtime.git
-cd ming3-tts-cpu-realtime
+git clone https://github.com/RobotSe7en/ming3-tts.cpp.git
+cd ming3-tts.cpp
 make setup      # clones pinned audio.cpp 7d20b414, applies patch, downloads & verifies Q8_0 GGUF, builds & runs CTest
 ```
 

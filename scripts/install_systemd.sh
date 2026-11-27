@@ -10,9 +10,9 @@ if [ ! -x "$REPO_ROOT/.cache/bench-build/ming3_fast_server" ]; then
     exit 1
 fi
 
-sed "s|/path/to/ming3-tts-cpu-realtime|$REPO_ROOT|g" \
+sed "s|/path/to/ming3-tts.cpp|$REPO_ROOT|g" \
     "$REPO_ROOT/deploy/ming3-tts.service.example" > "$UNIT_DIR/ming3-tts.service"
-sed "s|/path/to/ming3-tts-cpu-realtime|$REPO_ROOT|g" \
+sed "s|/path/to/ming3-tts.cpp|$REPO_ROOT|g" \
     "$REPO_ROOT/deploy/ming3-tts-gateway.service.example" > "$UNIT_DIR/ming3-tts-gateway.service"
 
 systemctl --user daemon-reload

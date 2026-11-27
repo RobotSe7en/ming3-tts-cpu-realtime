@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/path/to/ming3-tts-cpu-realtime/.cache/audio.cpp
-ExecStart=/path/to/ming3-tts-cpu-realtime/.cache/bench-build/ming3_fast_server --config /path/to/ming3-tts-cpu-realtime/deploy/server.json
+WorkingDirectory=/path/to/ming3-tts.cpp/.cache/audio.cpp
+ExecStart=/path/to/ming3-tts.cpp/.cache/bench-build/ming3_fast_server --config /path/to/ming3-tts.cpp/deploy/server.json
 
 # Thread & library caps (4 physical cores recommended)
 Environment=OMP_NUM_THREADS=4
