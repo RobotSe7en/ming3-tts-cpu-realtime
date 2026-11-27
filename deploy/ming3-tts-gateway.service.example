@@ -12,7 +12,7 @@ CPUQuota=100%
 MemoryMax=512M
 MemorySwapMax=0
 TasksMax=64
-Nice=10
+Nice=0
 
 Restart=on-failure
 RestartSec=2

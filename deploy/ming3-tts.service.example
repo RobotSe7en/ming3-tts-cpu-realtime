@@ -24,12 +24,12 @@ Environment=MING_FLOW_STEPS=8
 Environment=MING_CFG_INTERVAL=1
 Environment=MING_REUSE_ANCHOR_LATENT=1
 
-# Host resource caps
-CPUQuota=400%
+# Host resource caps (420% leaves headroom for HTTP/IO thread so 4 OpenMP threads avoid CFS barrier stalls)
+CPUQuota=420%
 MemoryMax=4G
 MemorySwapMax=0
 TasksMax=256
-Nice=10
+Nice=0
 
 Restart=on-failure
 RestartSec=5

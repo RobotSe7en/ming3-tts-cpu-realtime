@@ -22,6 +22,7 @@ import struct
 import subprocess
 import sys
 import threading
+import time
 import urllib.parse
 import wave
 
@@ -32,6 +33,7 @@ AYTS_FRAME_PCM = 1
 AYTS_FRAME_EOF = 2
 SUPPORTED_SAMPLE_RATES = {16000, 22050, 24000, 44100, 48000}
 BACKEND_STREAM_MODEL = "ming3-tts-stream"
+DEFAULT_PREBUFFER_MS = int(os.environ.get("GATEWAY_PREBUFFER_MS", "1000"))
 
 
 class _SoxrIOSpec(ctypes.Structure):
@@ -416,6 +418,13 @@ class GatewayHandler(BaseHTTPRequestHandler):
             return
         use_ayts = (req.get("stream_format", "ayts") != "raw") and (response_format == "pcm")
 
+        prebuffer_ms = req.get("prebuffer_ms", DEFAULT_PREBUFFER_MS)
+        if not isinstance(prebuffer_ms, int) or isinstance(prebuffer_ms, bool) or not 0 <= prebuffer_ms <= 5000:
+            self._send_json(400, {"error": "prebuffer_ms must be an integer between 0 and 5000"})
+            return
+        prebuffer_bytes = (sample_rate * 2 * prebuffer_ms // 1000)
+        prebuffer_bytes -= prebuffer_bytes % 2
+
         # 0.32s max AYTS PCM frame -> 15360 bytes at 24 kHz mono s16le (exact AYTS/1 match)
         max_frame_bytes = (sample_rate * 2 * 32 // 100)
         max_frame_bytes -= max_frame_bytes % 2
@@ -429,12 +438,24 @@ class GatewayHandler(BaseHTTPRequestHandler):
         resampler: StatefulResampler | None = None
         headers_sent = False
         total_pcm_bytes = 0
+        prebuf = bytearray()
+        t_start = time.perf_counter()
+        ttft_s: float | None = None
+        last_emit_t: float | None = None
+        play_end_s: float | None = None
+        max_gap_s = 0.0
+        underrun_s = 0.0
+        emitted_bursts = 0
 
         def emit_pcm(pcm_chunk: bytes) -> None:
-            nonlocal headers_sent, total_pcm_bytes
+            nonlocal headers_sent, total_pcm_bytes, ttft_s, last_emit_t, play_end_s, max_gap_s, underrun_s, emitted_bursts
             if not pcm_chunk:
                 return
+            now = time.perf_counter() - t_start
+            chunk_dur = (len(pcm_chunk) / 2) / sample_rate
             if not headers_sent:
+                ttft_s = now
+                play_end_s = now + chunk_dur
                 self.send_response(200)
                 if use_ayts:
                     self.send_header("Content-Type", "application/x-ayni-pcm-stream")
@@ -450,6 +471,19 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 if use_ayts:
                     self._write_http_chunk(encode_ayts_header(sample_rate, 1))
                 headers_sent = True
+            else:
+                if last_emit_t is not None:
+                    gap = now - last_emit_t
+                    if gap > max_gap_s:
+                        max_gap_s = gap
+                if play_end_s is not None:
+                    if now > play_end_s:
+                        underrun_s += now - play_end_s
+                        play_end_s = now + chunk_dur
+                    else:
+                        play_end_s += chunk_dur
+            last_emit_t = now
+            emitted_bursts += 1
 
             if use_ayts:
                 out_parts = []
@@ -484,17 +518,39 @@ class GatewayHandler(BaseHTTPRequestHandler):
                 if not buf:
                     break
                 resampled = resampler.process(buf)
-                if resampled:
+                if not resampled:
+                    continue
+                if not headers_sent and prebuffer_bytes > 0:
+                    prebuf.extend(resampled)
+                    if len(prebuf) >= prebuffer_bytes:
+                        emit_pcm(bytes(prebuf))
+                        prebuf.clear()
+                else:
                     emit_pcm(resampled)
 
             tail = resampler.flush()
-            if tail:
+            if not headers_sent and prebuf:
+                if tail:
+                    prebuf.extend(tail)
+                emit_pcm(bytes(prebuf))
+                prebuf.clear()
+            elif tail:
                 emit_pcm(tail)
 
             if headers_sent:
                 if use_ayts:
                     self._write_http_chunk(encode_ayts_eof_frame(total_pcm_bytes))
                 self._finish_http_chunked()
+                wall = time.perf_counter() - t_start
+                audio_dur = (total_pcm_bytes / 2) / sample_rate
+                rtf = wall / audio_dur if audio_dur > 0 else 0.0
+                voice_lbl = req.get("voice") or "default"
+                sys.stderr.write(
+                    f"[stream] client={self.address_string()} chars={len(text)} voice={voice_lbl} sr={sample_rate} "
+                    f"prebuf={prebuffer_ms}ms ttft={(ttft_s or 0.0)*1000:.0f}ms wall={wall:.3f}s dur={audio_dur:.3f}s "
+                    f"rtf={rtf:.4f} bursts={emitted_bursts} max_gap={max_gap_s*1000:.0f}ms underrun_0ms={underrun_s*1000:.0f}ms\n"
+                )
+                sys.stderr.flush()
             else:
                 self._send_json(502, {"error": "backend produced empty audio stream"})
         except (BrokenPipeError, ConnectionResetError):
