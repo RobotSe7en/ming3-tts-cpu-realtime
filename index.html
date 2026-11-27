@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Ming-3.0-TTS 0.5B — Real-Time x86 CPU Audio Samples</title>
+<title>ming3-tts.cpp — Ming-3.0-TTS 0.5B Real-Time x86 CPU Audio Samples</title>
 <style>
   :root {
     --bg: #0d1117;
@@ -82,14 +82,14 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Ming-3.0-TTS 0.5B — Real-Time x86 CPU Audio Samples</h1>
+    <h1>ming3-tts.cpp — Real-Time x86 CPU Audio Samples</h1>
     <p class="subtitle">
       Intel Core i3-10100 (4 CPU threads, AVX2, No GPU) · Official <code>Q8_0</code> GGUF · Deterministic <code>seed=1895</code> · Plan A (<code>AR=q8</code> BF16 + <code>Flow=q4g128</code> 8-step full CFG=2.0)
     </p>
     <div class="nav">
-      <a class="btn" href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime">← GitHub Repository</a>
-      <a class="btn" href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/blob/main/README_ZH.md">中文说明</a>
-      <a class="btn" href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/tag/audio-samples">Download Lossless WAVs &amp; MP4s</a>
+      <a class="btn" href="https://github.com/RobotSe7en/ming3-tts.cpp">← GitHub Repository</a>
+      <a class="btn" href="https://github.com/RobotSe7en/ming3-tts.cpp/blob/main/README_ZH.md">中文说明</a>
+      <a class="btn" href="https://github.com/RobotSe7en/ming3-tts.cpp/releases/tag/audio-samples">Download Lossless WAVs &amp; MP4s</a>
     </div>
   </header>
 
@@ -109,12 +109,12 @@
       <div class="track a" id="box-a1">
         <div class="track-label"><span>A · Upstream Baseline (Q8_0)</span><span class="rtf">RTF 1.921</span></div>
         <audio id="a1" controls preload="metadata" src="audio/01_lingxiaorou_30c_baseline_q8.mp3"></audio>
-        <div class="track-foot"><span>audio.cpp 7d20b414, 10-step CFG=2.0</span><a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_baseline_q8.wav">Lossless WAV ↓</a></div>
+        <div class="track-foot"><span>audio.cpp 7d20b414, 10-step CFG=2.0</span><a href="https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/01_lingxiaorou_30c_baseline_q8.wav">Lossless WAV ↓</a></div>
       </div>
       <div class="track b" id="box-b1">
         <div class="track-label"><span>B · Plan A Real-Time (AR=q8 BF16 + Q4G128)</span><span class="rtf">RTF 0.972</span></div>
         <audio id="b1" controls preload="metadata" src="audio/01_lingxiaorou_30c_planA_ar_q8.mp3"></audio>
-        <div class="track-foot"><span>AVX2 Direct Flow, 8-step Sway CFG=2.0</span><a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_planA_ar_q8.wav">Lossless WAV ↓</a></div>
+        <div class="track-foot"><span>AVX2 Direct Flow, 8-step Sway CFG=2.0</span><a href="https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/01_lingxiaorou_30c_planA_ar_q8.wav">Lossless WAV ↓</a></div>
       </div>
     </div>
   </section>
@@ -135,12 +135,12 @@
       <div class="track a" id="box-a2">
         <div class="track-label"><span>A · Upstream Baseline (Q8_0)</span><span class="rtf">RTF 2.141</span></div>
         <audio id="a2" controls preload="metadata" src="audio/02_lingxiaorou_107c_baseline_q8.mp3"></audio>
-        <div class="track-foot"><span>freeform IP voice · 1.97 GiB RAM</span><a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_baseline_q8.wav">Lossless WAV ↓</a></div>
+        <div class="track-foot"><span>freeform IP voice · 1.97 GiB RAM</span><a href="https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/02_lingxiaorou_107c_baseline_q8.wav">Lossless WAV ↓</a></div>
       </div>
       <div class="track b" id="box-b2">
         <div class="track-label"><span>B · Plan A High-Quality (AR=q8 BF16 + Q4G128)</span><span class="rtf">RTF 1.120</span></div>
         <audio id="b2" controls preload="metadata" src="audio/02_lingxiaorou_107c_planA_ar_q8.mp3"></audio>
-        <div class="track-foot"><span>freeform IP voice · 1.27 GiB RAM (-35%)</span><a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_planA_ar_q8.wav">Lossless WAV ↓</a></div>
+        <div class="track-foot"><span>freeform IP voice · 1.27 GiB RAM (-35%)</span><a href="https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/02_lingxiaorou_107c_planA_ar_q8.wav">Lossless WAV ↓</a></div>
       </div>
     </div>
   </section>
@@ -160,19 +160,19 @@
       <div class="track a" id="box-a3">
         <div class="track-label"><span>A · Upstream Baseline (Q8_0)</span><span class="rtf">RTF 2.079</span></div>
         <audio id="a3" controls preload="metadata" src="audio/03_uncond_107c_baseline_q8.mp3"></audio>
-        <div class="track-foot"><span>~46.0s compute · 1.98 GiB RAM</span><a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_baseline_q8.wav">Lossless WAV ↓</a></div>
+        <div class="track-foot"><span>~46.0s compute · 1.98 GiB RAM</span><a href="https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/03_uncond_107c_baseline_q8.wav">Lossless WAV ↓</a></div>
       </div>
       <div class="track b" id="box-b3">
         <div class="track-label"><span>B · Plan A Real-Time (AR=q8 BF16 + Anchor Reuse)</span><span class="rtf">RTF 0.991</span></div>
         <audio id="b3" controls preload="metadata" src="audio/03_uncond_107c_planA_ar_q8.mp3"></audio>
-        <div class="track-foot"><span>~17.5s compute · 1.23 GiB RAM</span><a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_planA_ar_q8.wav">Lossless WAV ↓</a></div>
+        <div class="track-foot"><span>~17.5s compute · 1.23 GiB RAM</span><a href="https://github.com/RobotSe7en/ming3-tts.cpp/releases/download/audio-samples/03_uncond_107c_planA_ar_q8.wav">Lossless WAV ↓</a></div>
       </div>
     </div>
   </section>
 
   <footer>
     Built on <a href="https://github.com/0xShug0/audio.cpp">0xShug0/audio.cpp</a> &amp; Ming-3.0-TTS 0.5B ·
-    <a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime">View source &amp; full ABBA data on GitHub</a>
+    <a href="https://github.com/RobotSe7en/ming3-tts.cpp">View source &amp; full ABBA data on GitHub</a>
   </footer>
 </div>
 
