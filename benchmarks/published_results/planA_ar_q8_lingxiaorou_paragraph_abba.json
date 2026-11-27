@@ -13,62 +13,62 @@
     "agg_quant": "q4g64",
     "ar_quant": "q8",
     "vae_quant": "q4_0",
-    "fused_fp32_act": "1",
+    "fused_fp32_act": "auto",
     "flow_steps": 8,
     "cfg_interval": 1,
     "reuse_anchor_latent": "1",
     "template_name": "freeform",
     "instruct": "{\"audio_sequence\": [{\"序号\": 1, \"说话人\": \"speaker_1\", \"方言\": null, \"风格\": null, \"语速\": null, \"基频\": null, \"音量\": null, \"情感\": null, \"BGM\": {\"Genre\": null, \"Mood\": null, \"Instrument\": null, \"Theme\": null, \"ENV\": null, \"SNR\": null}, \"IP\": \"灵小柔\"}]}",
-    "tag_suffix": "lingxiaorou",
+    "tag_suffix": "lingxiaorou-auto",
     "skip_regressions": true
   },
   "measured_runs_per_variant": 4,
   "measurements": {
     "reference": {
-      "median_rtf": 2.022885494,
+      "median_rtf": 2.0423325475,
       "rtfs": [
-        1.99987622,
-        2.021024588,
-        2.128954223,
-        2.0247464
+        2.033057472,
+        2.044818171,
+        2.039846924,
+        2.057007677
       ],
-      "peak_rss_gib": 1.9663276672363281,
+      "peak_rss_gib": 1.9662246704101562,
       "max_swap_bytes": 0
     },
     "candidate": {
-      "median_rtf": 1.0766243355,
+      "median_rtf": 1.0643160235,
       "rtfs": [
-        1.030672948,
-        1.014628745,
-        1.122575723,
-        1.165487349
+        1.056746825,
+        1.053789066,
+        1.098034922,
+        1.071885222
       ],
-      "peak_rss_gib": 1.2577056884765625,
+      "peak_rss_gib": 1.2713203430175781,
       "max_swap_bytes": 0
     }
   },
-  "rtf_reduction_percent": 46.77779149174125,
-  "speedup": 1.8789148891572682,
+  "rtf_reduction_percent": 47.887231939635925,
+  "speedup": 1.918915531106819,
   "audio_bitwise_equal": false,
   "runs": [
     {
       "role": "reference",
       "variant": "baseline",
       "fixture": "zh_paragraph.txt",
-      "results": "benchmarks/results/ming3-q8-t4-20261127T020813Z",
-      "median_rtf": 2.010450404,
+      "results": "benchmarks/results/ming3-q8-t4-20261127T071252Z",
+      "median_rtf": 2.0389378215000002,
       "rtfs": [
-        1.99987622,
-        2.021024588
+        2.033057472,
+        2.044818171
       ],
       "audio_s": [
         18.8,
         18.8
       ],
-      "peak_rss_kib": 2061844,
+      "peak_rss_kib": 2061736,
       "cpu_percent": [
-        397.301120934,
-        396.931562046
+        397.680621344,
+        396.786268133
       ],
       "swap_bytes": 0,
       "audio_sha256": [
@@ -80,70 +80,70 @@
       "role": "candidate",
       "variant": "fast",
       "fixture": "zh_paragraph.txt",
-      "results": "benchmarks/results/ming3-q8-fast-t4-20261127T021012Z",
-      "median_rtf": 1.0226508465,
+      "results": "benchmarks/results/ming3-q8-fast-t4-20261127T071452Z",
+      "median_rtf": 1.0552679455,
       "rtfs": [
-        1.030672948,
-        1.014628745
+        1.056746825,
+        1.053789066
       ],
       "audio_s": [
-        18.5,
-        18.5
+        18.2,
+        18.2
       ],
-      "peak_rss_kib": 1318408,
+      "peak_rss_kib": 1333044,
       "cpu_percent": [
-        397.494404383,
-        397.628757748
+        397.569516569,
+        397.91891763
       ],
       "swap_bytes": 0,
       "audio_sha256": [
-        "db5caafaaa2e06db9ccc0b1ef29fb0275affe325cc40030d5d70fd6dda2a2975",
-        "db5caafaaa2e06db9ccc0b1ef29fb0275affe325cc40030d5d70fd6dda2a2975"
+        "c24c40c2a1cf9c7b48dd0e53ea9ca446bf96aaf30a50c7fedcadb326c76afa03",
+        "c24c40c2a1cf9c7b48dd0e53ea9ca446bf96aaf30a50c7fedcadb326c76afa03"
       ]
     },
     {
       "role": "candidate",
       "variant": "fast",
       "fixture": "zh_paragraph.txt",
-      "results": "benchmarks/results/ming3-q8-fast-t4-20261127T021115Z",
-      "median_rtf": 1.144031536,
+      "results": "benchmarks/results/ming3-q8-fast-t4-20261127T071556Z",
+      "median_rtf": 1.0849600719999999,
       "rtfs": [
-        1.122575723,
-        1.165487349
+        1.098034922,
+        1.071885222
       ],
       "audio_s": [
-        18.5,
-        18.5
+        18.2,
+        18.2
       ],
-      "peak_rss_kib": 1318800,
+      "peak_rss_kib": 1333076,
       "cpu_percent": [
-        393.868605923,
-        394.85913767
+        396.172606727,
+        397.26174569
       ],
       "swap_bytes": 0,
       "audio_sha256": [
-        "db5caafaaa2e06db9ccc0b1ef29fb0275affe325cc40030d5d70fd6dda2a2975",
-        "db5caafaaa2e06db9ccc0b1ef29fb0275affe325cc40030d5d70fd6dda2a2975"
+        "c24c40c2a1cf9c7b48dd0e53ea9ca446bf96aaf30a50c7fedcadb326c76afa03",
+        "c24c40c2a1cf9c7b48dd0e53ea9ca446bf96aaf30a50c7fedcadb326c76afa03"
       ]
     },
     {
       "role": "reference",
       "variant": "baseline",
       "fixture": "zh_paragraph.txt",
-      "results": "benchmarks/results/ming3-q8-t4-20261127T021223Z",
-      "median_rtf": 2.0768503115000003,
+      "results": "benchmarks/results/ming3-q8-t4-20261127T071703Z",
+      "median_rtf": 2.0484273005,
       "rtfs": [
-        2.128954223,
-        2.0247464
+        2.039846924,
+        2.057007677
       ],
       "audio_s": [
         18.8,
         18.8
       ],
-      "peak_rss_kib": 2061324,
+      "peak_rss_kib": 2061732,
       "cpu_percent": [
-        396.640205424,
-        396.74748526
+        397.225068946,
+        396.994768888
       ],
       "swap_bytes": 0,
       "audio_sha256": [

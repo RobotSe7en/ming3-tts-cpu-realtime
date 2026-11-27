@@ -2,7 +2,7 @@
 
 [English](README.md) | [中文说明](README_ZH.md) | [▶ Online A/B Audio Demo](https://robotse7en.github.io/ming3-tts-cpu-realtime/) | [Full Experiment Log](docs/experiments.md)
 
-Achieving **real-time (`RTF 0.79–0.95`)** neural TTS synthesis for **Ming-3.0-TTS 0.5B** on a 6-year-old 4-core desktop CPU (**Intel Core i3-10100 @ 3.60 GHz** inside a TrueNAS Linux VM, 4 threads, no discrete GPU, no iGPU passthrough) — using the **existing official `Q8_0` GGUF checkpoint** with load-time weight repacking (~2.3s), zero swap, and up to **46% lower peak RAM**.
+Achieving **real-time (`RTF 0.79–0.97`)** neural TTS synthesis for **Ming-3.0-TTS 0.5B** on a 6-year-old 4-core desktop CPU (**Intel Core i3-10100 @ 3.60 GHz** inside a TrueNAS Linux VM, 4 threads, no discrete GPU, no iGPU passthrough) — using the **existing official `Q8_0` GGUF checkpoint** with load-time weight repacking (~2.3s), zero swap, and up to **46% lower peak RAM**.
 
 Built as a clean, replayable patch and C++ AVX2 microkernel suite on top of [`0xShug0/audio.cpp`](https://github.com/0xShug0/audio.cpp) (`7d20b414`, Apache 2.0) without modifying the upstream checkout.
 
@@ -14,37 +14,37 @@ All benchmarks use sequential **ABBA** blocks (`baseline → fast → fast → b
 
 ### 1. Operating Modes Comparison (Same Binary, Same `Q8_0` GGUF)
 
-| Mode | Short (4s) | Long (21s) | `灵小柔` (6s) | Peak RAM | Highlight |
+| Mode | Short (4s) | Long (23s) | `灵小柔` (6s) | Peak RAM | Highlight |
 | --- | ---: | ---: | ---: | ---: | --- |
-| **Baseline** (`Q8_0`) | `1.69–1.82` | `1.91–1.99` | `1.81` | `1.98 GiB` | Upstream reference |
-| **Plan A** ⭐ | **`0.87`** (1.94×) | **`0.93`** (2.05×) | **`0.95`** (1.90×) | **`1.25 GiB`** (-37%) | **Recommended** · Best audio fidelity |
-| **Plan B** | **`0.79`** (2.18×) | **`0.87`** (2.25×) | `0.87`* | **`1.09 GiB`** (-45%) | Max speed & lowest memory |
+| **Baseline** (`Q8_0`) | `1.70–1.82` | `1.92–1.99` | `1.84` | `1.98 GiB` | Upstream reference |
+| **Plan A** ⭐ | **`0.86`** (1.97×) | **`0.97`** (1.98×) | `1.01` (1.81×) | **`1.31 GiB`** (-34%) | **Recommended** · Best audio fidelity |
+| **Plan B** | **`0.79`** (2.18×) | **`0.87`** (2.25×) | **`0.87`**\* | **`1.09 GiB`** (-45%) | Max speed & lowest memory |
 | **Plan C** | **`0.89`** (2.05×) | **`0.99`** (2.01×) | — | **`1.07 GiB`** (-46%) | Exact official 10-step schedule |
 
-- **Plan A (Recommended — High Quality)**: `AR=q8` (`--fused-fp32-act 1`) + `Flow/Agg=q4g64` (8-step sway, full CFG) + `VAE=q4_0`. Achieves `0.0000` ASR CER across all 4 suites, `0.9539` speaker cosine on `灵小柔`, and zero chunk-2 artifacts.
+- **Plan A (Recommended — High Quality)**: `AR=q8` (`--fused-fp32-act auto`, keeping AR's upstream BF16 rounding intact) + `Flow/Agg=q4g64` (8-step sway, full CFG) + `VAE=q4_0`. Achieves `0.0000` ASR CER across all 4 suites, `0.9295` speaker cosine on 107-char `灵小柔` (`review_flag=false`), and zero robotic chunk-2 artifacts.
 - **Plan B (Fastest / Lowest RAM)**: `AR=q4_0` + `Flow/Agg=q4g64` (8-step sway, full CFG) + `VAE=q4_0`. Maximum RTF margin and lowest memory; `0.0000` clipping (*`灵小柔` 30-char is single-run: `CER=0.0000`, cosine `0.8501`).
 - **Plan C (Exact 10-Step)**: `AR=q4_0` + `Flow/Agg=q4g128` (official 10-step, full CFG) + `VAE=q4_0`. Zero sampling schedule changes.
 
-### 2. Plan A (`AR=q8`) Detailed ABBA & Automated Screening
+### 2. Plan A (`AR=q8`, `fused=auto`) Detailed ABBA & Automated Screening
 
 | Fixture | Baseline | Plan A | Speedup | Peak RAM | CER / Cosine |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `zh_short` (4.0s) | `1.694` | **`0.872`** | **1.94×** | `1.33 → 1.24 GiB` | `0.00` / `0.858` |
-| `zh_paragraph` (20.9s) | `1.909` | **`0.933`** | **2.05×** | `1.98 → 1.25 GiB` | `0.00` / `0.879` |
-| `灵小柔` 30c (6.0s) | `1.807` | **`0.953`** | **1.90×** | `1.35 → 1.24 GiB` | `0.00` / **`0.954`** ✓ |
-| `灵小柔` 107c (18.5s)¹ | `2.023` | `1.077`¹ | **1.88×** | `1.97 → 1.26 GiB` | `0.00` / **`0.917`** ✓ |
+| `zh_short` (4.0s) | `1.697` | **`0.862`** | **1.97×** | `1.33 → 1.24 GiB` | `0.00` / `0.842` |
+| `zh_paragraph` (22.8s) | `1.916` | **`0.970`** | **1.98×** | `1.98 → 1.31 GiB` | `0.00` / `0.869` |
+| `灵小柔` 30c (5.8s) | `1.837` | `1.012` | **1.81×** | `1.35 → 1.24 GiB` | `0.00` / `0.887` |
+| `灵小柔` 107c (18.2s)¹ | `2.042` | `1.064`¹ | **1.92×** | `1.97 → 1.27 GiB` | `0.00` / **`0.930`** ✓ |
 
 <details>
 <summary>Full 4-run RTF distributions, clipping stats, and extra regression fixtures</summary>
 
 | Fixture | Baseline | Plan A | Plan A 4 Runs | Base → Plan A CER | Clipping |
 | --- | ---: | ---: | --- | ---: | ---: |
-| `zh_short.txt` | `1.6940` | `0.8717` | `0.9018, 0.8599, 0.8787, 0.8647` | `0.0000 → 0.0000` | `0.000000` |
-| `zh_paragraph.txt` | `1.9088` | `0.9327` | `0.9292, 0.9333, 0.9365, 0.9321` | `0.0625 → 0.0000` | `0.000039` |
-| `zh_lingxiaorou_short.txt` | `1.8066` | `0.9525` | `0.9531, 0.9488, 0.9716, 0.9519` | `0.0000 → 0.0000` | `0.000000` |
-| `zh_paragraph.txt` (`灵小柔`) | `2.0229` | `1.0766` | `1.0307, 1.0146, 1.1226, 1.1655` | `0.0000 → 0.0000` | `0.000000` |
-| `zh_regression.txt` (1×) | `1.6888` | `0.8861` | `0.8861` (1.91×) | — | — |
-| `zh_long_regression.txt` (1×) | `1.8672` | `0.9004` | `0.9004` (2.07×) | — | — |
+| `zh_short.txt` | `1.6974` | `0.8622` | `0.8592, 0.8651, 0.9599, 0.8592` | `0.0000 → 0.0000` | `0.000000` |
+| `zh_paragraph.txt` | `1.9161` | `0.9696` | `0.9656, 0.9624, 0.9847, 0.9737` | `0.0625 → 0.0000` | `0.000046` |
+| `zh_lingxiaorou_short.txt` | `1.8368` | `1.0124` | `1.0007, 1.0196, 1.0696, 1.0052` | `0.0000 → 0.0000` | `0.000000` |
+| `zh_paragraph.txt` (`灵小柔`) | `2.0423` | `1.0643` | `1.0567, 1.0538, 1.0980, 1.0719` | `0.0000 → 0.0000` | `0.000000` |
+| `zh_regression.txt` (1×) | `1.6744` | `0.9098` | `0.9098` (1.84×) | — | — |
+| `zh_long_regression.txt` (1×) | `1.8428` | `0.9593` | `0.9593` (1.92×) | — | — |
 
 </details>
 
@@ -60,11 +60,11 @@ Sanitized JSON reports for all ABBA runs and SenseVoice INT8 ASR + CAMPPlus qual
 >
 > GitHub README strips `<audio>` tags, so we host a zero-download browser A/B player on GitHub Pages alongside lossless 44.1 kHz WAV & waveform MP4 downloads in [Release `audio-samples`](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/tag/audio-samples).
 
-| Sample | A: Baseline (`Q8_0`) | B: Plan A Real-Time | Summary |
+| Sample | A: Baseline (`Q8_0`) | B: Plan A High-Quality | Summary |
 | --- | --- | --- | --- |
-| **1. `灵小柔` Short** (30c, 6s) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_baseline_q8.wav) (`1.81`) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_planA_ar_q8_rtf095.wav) (**`0.95`**) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_30c.mp4) | **1.90×** · Cos **`0.954`** |
-| **2. Paragraph** (107c, 21s) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_baseline_q8.wav) (`1.91`) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_planA_ar_q8_rtf093.wav) (**`0.93`**) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_uncond_107c.mp4) | **2.05×** · RAM `-37%` |
-| **3. `灵小柔` Long** (107c, 19s) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_baseline_q8.wav) (`2.02`) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_planA_ar_q8.wav) (`1.08`¹) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_107c.mp4) | **1.88×** · Cos **`0.917`** |
+| **1. `灵小柔` Short** (30c, 6s) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_baseline_q8.wav) (`1.84`) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_planA_ar_q8.wav) (`1.01`) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_30c.mp4) | **1.81×** · CER `0.00` |
+| **2. `灵小柔` Long** (107c, 18s) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_baseline_q8.wav) (`2.04`) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_planA_ar_q8.wav) (`1.06`¹) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_lingxiaorou_107c.mp4) | **1.92×** · Cos **`0.930`** |
+| **3. Paragraph** (107c, 23s) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_baseline_q8.wav) (`1.92`) | [WAV](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_planA_ar_q8.wav) (**`0.97`**) · [A/B MP4](https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/ab_demo_uncond_107c.mp4) | **1.98×** · RAM `-34%` |
 
 All samples are unedited 44.1 kHz PCM16 outputs (`seed=1895`, 4 CPU threads, zero post-processing).
 
@@ -101,13 +101,13 @@ flowchart LR
    - All AVX2/FMA/F16C paths are runtime-gated via `__builtin_cpu_supports` with full portable scalar fallbacks and `Q8_0` compatibility.
 3. **Load-Time `CPU_REPACK` & Fused FP32 Activations** ([`src/ming_cpu/repack_weights.cpp`](src/ming_cpu/repack_weights.cpp)):
    - Parallel OpenMP load-time conversion from the verified `Q8_0` GGUF into GGML's `ggml_backend_cpu_repack_buffer_type()` (`Q4_0_8x8_q8_0`, total load ~2.3s).
-   - Disables ~550 artificial intermediate BF16 rounding passes in quantized/fast CPU mode (`--fused-fp32-act 1`), unlocking fused `ggml_swiglu` even when keeping AR at lossless `Q8_0`.
+   - `--fused-fp32-act auto` disables intermediate artificial BF16 rounding passes on 4-bit quantized blocks (unlocking fused `ggml_swiglu`) while preserving upstream BF16 casts on `Q8_0` AR for long-form stability.
 4. **Uniform-`u` 8-Step Sway Schedule & Chunk-1 Anchor Latent Reuse**:
    - Fixes earlier non-uniform EPSS step failures (where the final Euler step jumped `dt = 0.707`, causing severe ASR errors) by spacing uniformly in `u` before the cosine sway transform while keeping full `CFG = 2.0` on every step.
    - For unconditioned multi-chunk text, slices Chunk 1's generated latents by exact `patch_samples = output_dim * patch_size` while still running CAMPPlus (`--reuse-anchor-latent 1`), saving ~1.0s and ~380 MiB RSS (`--reuse-anchor-latent 0` falls back to full `MingAudioEncoder`).
-5. **The Listening Catch (Why Plan A Keeps `AR=q8`)**:
-   - Automated ASR CER looked great on `AR=q4_0` (`CER = 0.02–0.03`), yet side-by-side listening against Apple Silicon Mac Metal outputs revealed a metallic/telephone compression artifact starting at Chunk 2 of long unconditioned passages.
-   - Component-by-component isolation (`reuse=0`, `VAE=q8`, `Agg=q8`, `AR=q8`) proved **`AR=q4_0`** was the sole culprit: 4-bit AR degraded long acoustic prompt conditioning. Restoring `AR=q8` with `--fused-fp32-act 1` eliminated the artifact 100%, raised `灵小柔` speaker cosine to **`0.9539`** (`review_flag=false`), and still achieved **`RTF 0.87–0.95`**.
+5. **Two Listening Catches (Why Plan A Uses `AR=q8` + `--fused-fp32-act auto`)**:
+   - **Catch 1 (`AR=q4_0`)**: Automated ASR CER looked great on `AR=q4_0` (`CER = 0.02–0.03`), yet side-by-side listening against Mac Metal revealed a telephone/metallic compression artifact starting at Chunk 2 of long passages. Component isolation proved 4-bit AR was the culprit.
+   - **Catch 2 (`AR=q8` + forced `--fused-fp32-act 1`)**: Detailed listening on the 107-char `灵小柔` paragraph caught a second robotic segment in Chunk 2 caused by stripping AR's 13 upstream BF16 rounding points. Switching to **`--fused-fp32-act auto`** (keeping AR's upstream BF16 rounding intact while still fusing FP32 on 4-bit VAE) eliminated the robotic artifact completely, raised `灵小柔` 107-char cosine to **`0.9295`** (`review_flag=false`), and kept standard short/paragraph TTS at **`RTF 0.86–0.97`**.
 
 ---
 
@@ -146,16 +146,16 @@ ctest --test-dir .cache/bench-build --output-on-failure
 ### 3. Run ABBA Benchmarks
 
 ```bash
-# Plan A (Recommended: AR=q8 + fused FP32 act + Flow/Agg=q4g64 8-step + VAE=q4_0)
+# Plan A (Recommended: AR=q8 + fused=auto [keeps AR BF16] + Flow/Agg=q4g64 8-step + VAE=q4_0)
 python3 benchmarks/compare_ming_fast.py --fixture zh_short.txt --iterations 2 --threads 4 --reference baseline \
-  --flow-quant q4g64 --agg-quant q4g64 --ar-quant q8 --vae-quant q4_0 --fused-fp32-act 1 --flow-steps 8 --cfg-interval 1
+  --flow-quant q4g64 --agg-quant q4g64 --ar-quant q8 --vae-quant q4_0 --fused-fp32-act auto --flow-steps 8 --cfg-interval 1
 python3 benchmarks/compare_ming_fast.py --fixture zh_paragraph.txt --iterations 2 --threads 4 --reference baseline \
-  --flow-quant q4g64 --agg-quant q4g64 --ar-quant q8 --vae-quant q4_0 --fused-fp32-act 1 --flow-steps 8 --cfg-interval 1 --skip-regressions
+  --flow-quant q4g64 --agg-quant q4g64 --ar-quant q8 --vae-quant q4_0 --fused-fp32-act auto --flow-steps 8 --cfg-interval 1 --skip-regressions
 
 # Plan A with built-in IP voice 灵小柔
 INSTRUCT='{"audio_sequence": [{"序号": 1, "说话人": "speaker_1", "方言": null, "风格": null, "语速": null, "基频": null, "音量": null, "情感": null, "BGM": {"Genre": null, "Mood": null, "Instrument": null, "Theme": null, "ENV": null, "SNR": null}, "IP": "灵小柔"}]}'
 python3 benchmarks/compare_ming_fast.py --fixture zh_lingxiaorou_short.txt --iterations 2 --threads 4 --reference baseline \
-  --flow-quant q4g64 --agg-quant q4g64 --ar-quant q8 --vae-quant q4_0 --fused-fp32-act 1 --flow-steps 8 --cfg-interval 1 \
+  --flow-quant q4g64 --agg-quant q4g64 --ar-quant q8 --vae-quant q4_0 --fused-fp32-act auto --flow-steps 8 --cfg-interval 1 \
   --template-name freeform --instruct "$INSTRUCT" --tag-suffix lingxiaorou --skip-regressions
 
 # Plan B (Fastest / Lowest RAM: AR=q4_0 + Flow/Agg=q4g64 8-step + VAE=q4_0)

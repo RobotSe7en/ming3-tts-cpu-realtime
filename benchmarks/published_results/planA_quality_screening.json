@@ -16,7 +16,7 @@
     "command": [
       ".cache/bench-build/ming3_quality_embed",
       "models/ming-3.0-tts-0.5b-q8_0.gguf",
-      "benchmarks/results/ming-fast-quality-planA-20261127T021500Z/wav_paths.txt"
+      "benchmarks/results/planA-fused-auto-quality.json/wav_paths.txt"
     ],
     "binary_sha256": "d2d2bbb2dba5b474855900c0fb118d1ccaa455e89f9ed663f871e6c71f43cfdc",
     "threads": 4
@@ -24,52 +24,52 @@
   "script_sha256": "0bb4a7a159d940a8fbccfe06ee9918f870ad7c8fd4a0cfa96f970b9db352ec59",
   "cases": [
     {
-      "comparison": "benchmarks/results/ming-fast-comparison-q4g64-ar_q8-vae_q4_0-s8-c1-t4-20261127T015629Z/comparison.json",
+      "comparison": "benchmarks/results/ming-fast-comparison-q4g64-ar_q8-vae_q4_0-s8-c1-t4-20261127T070047Z/comparison.json",
       "wav": {
-        "reference": "benchmarks/results/ming3-q8-t4-20261127T015632Z/audio/run_1.wav",
-        "candidate": "benchmarks/results/ming3-q8-fast-t4-20261127T015659Z/audio/run_1.wav"
+        "reference": "benchmarks/results/ming3-q8-t4-20261127T070051Z/audio/run_1.wav",
+        "candidate": "benchmarks/results/ming3-q8-fast-t4-20261127T070118Z/audio/run_1.wav"
       },
       "text": "今天阳光很好，我们来测试一下中文语音合成的速度。",
-      "speaker_cosine": 0.857937761890846,
+      "speaker_cosine": 0.8417083607369886,
       "reference_cer": 0.0,
       "candidate_cer": 0.0,
       "cer_change": 0.0,
       "review_flag": true
     },
     {
-      "comparison": "benchmarks/results/ming-fast-comparison-q4g64-ar_q8-vae_q4_0-s8-c1-t4-20261127T015932Z/comparison.json",
+      "comparison": "benchmarks/results/ming-fast-comparison-q4g64-ar_q8-vae_q4_0-s8-c1-t4-20261127T070350Z/comparison.json",
       "wav": {
-        "reference": "benchmarks/results/ming3-q8-t4-20261127T015935Z/audio/run_1.wav",
-        "candidate": "benchmarks/results/ming3-q8-fast-t4-20261127T020146Z/audio/run_1.wav"
+        "reference": "benchmarks/results/ming3-q8-t4-20261127T070354Z/audio/run_1.wav",
+        "candidate": "benchmarks/results/ming3-q8-fast-t4-20261127T070604Z/audio/run_1.wav"
       },
       "text": "清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。",
-      "speaker_cosine": 0.8784671858273015,
+      "speaker_cosine": 0.8690895787065779,
       "reference_cer": 0.0625,
       "candidate_cer": 0.0,
       "cer_change": -0.0625,
       "review_flag": true
     },
     {
-      "comparison": "benchmarks/results/ming-fast-comparison-q4g64-ar_q8-vae_q4_0-s8-c1-lingxiaorou-t4-20261127T020604Z/comparison.json",
+      "comparison": "benchmarks/results/ming-fast-comparison-q4g64-ar_q8-vae_q4_0-s8-c1-lingxiaorou-auto-t4-20261127T071041Z/comparison.json",
       "wav": {
-        "reference": "benchmarks/results/ming3-q8-t4-20261127T020608Z/audio/run_1.wav",
-        "candidate": "benchmarks/results/ming3-q8-fast-t4-20261127T020647Z/audio/run_1.wav"
+        "reference": "benchmarks/results/ming3-q8-t4-20261127T071044Z/audio/run_1.wav",
+        "candidate": "benchmarks/results/ming3-q8-fast-t4-20261127T071123Z/audio/run_1.wav"
       },
       "text": "窗外下起了小雨，桌上的热茶冒着白气，我们现在测试短句语音的清晰度。",
-      "speaker_cosine": 0.9538795597927926,
+      "speaker_cosine": 0.8870489815606678,
       "reference_cer": 0.0,
       "candidate_cer": 0.0,
       "cer_change": 0.0,
-      "review_flag": false
+      "review_flag": true
     },
     {
-      "comparison": "benchmarks/results/ming-fast-comparison-q4g64-ar_q8-vae_q4_0-s8-c1-lingxiaorou-t4-20261127T020809Z/comparison.json",
+      "comparison": "benchmarks/results/ming-fast-comparison-q4g64-ar_q8-vae_q4_0-s8-c1-lingxiaorou-auto-t4-20261127T071248Z/comparison.json",
       "wav": {
-        "reference": "benchmarks/results/ming3-q8-t4-20261127T020813Z/audio/run_1.wav",
-        "candidate": "benchmarks/results/ming3-q8-fast-t4-20261127T021012Z/audio/run_1.wav"
+        "reference": "benchmarks/results/ming3-q8-t4-20261127T071252Z/audio/run_1.wav",
+        "candidate": "benchmarks/results/ming3-q8-fast-t4-20261127T071452Z/audio/run_1.wav"
       },
       "text": "清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。",
-      "speaker_cosine": 0.9165761164673712,
+      "speaker_cosine": 0.9294768346199359,
       "reference_cer": 0.0,
       "candidate_cer": 0.0,
       "cer_change": 0.0,
@@ -77,7 +77,7 @@
     }
   ],
   "audio": {
-    "benchmarks/results/ming3-q8-t4-20261127T015632Z/audio/run_1.wav": {
+    "benchmarks/results/ming3-q8-t4-20261127T070051Z/audio/run_1.wav": {
       "text": "今天阳光很好，我们来测试一下中文语音合成的速度。",
       "sha256": "4ae90a01ab9cd5402b309c98d53a13c51bc1e8f13da5623075d3e6697d94eee1",
       "transcript": "今天阳光很好我们来测试一下中文语音合成的速度",
@@ -89,19 +89,19 @@
       "rms_dbfs": -17.79630729397062,
       "clipping_fraction": 0.0
     },
-    "benchmarks/results/ming3-q8-fast-t4-20261127T015659Z/audio/run_1.wav": {
+    "benchmarks/results/ming3-q8-fast-t4-20261127T070118Z/audio/run_1.wav": {
       "text": "今天阳光很好，我们来测试一下中文语音合成的速度。",
-      "sha256": "be39d929815011d670b05bdc7361bf5b5943bef1a675ffb3196b4d9f4d121d9c",
+      "sha256": "6873e35babddd8082c18daf8c3032d26686e910f12a8316f381da0a9c45f5fd0",
       "transcript": "今天阳光很好我们来测试一下中文语音合成的速度",
       "normalized_reference": "今天阳光很好我们来测试一下中文语音合成的速度",
       "normalized_hypothesis": "今天阳光很好我们来测试一下中文语音合成的速度",
       "edit_distance": 0,
       "cer": 0.0,
       "duration_s": 4.0,
-      "rms_dbfs": -17.39592650069956,
+      "rms_dbfs": -17.37930600215464,
       "clipping_fraction": 0.0
     },
-    "benchmarks/results/ming3-q8-t4-20261127T015935Z/audio/run_1.wav": {
+    "benchmarks/results/ming3-q8-t4-20261127T070354Z/audio/run_1.wav": {
       "text": "清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。",
       "sha256": "1013d0f30152611cde6dec2b3e7f60bb96db2ea3eac06d4621cf2d7bf7b2bef0",
       "transcript": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完一些句标处适当停并保持前后音一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
@@ -113,19 +113,19 @@
       "rms_dbfs": -19.014219583263646,
       "clipping_fraction": 0.00011183960763792697
     },
-    "benchmarks/results/ming3-q8-fast-t4-20261127T020146Z/audio/run_1.wav": {
+    "benchmarks/results/ming3-q8-fast-t4-20261127T070604Z/audio/run_1.wav": {
       "text": "清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。",
-      "sha256": "900f69be605c31987d80b598c5974f028ac78e147c671418a1bf1d5d50f3bd83",
+      "sha256": "6a6ba3a45909fcb3ab7c231d0eafe1240edb450c75cdc3d936bf1875a0de4c75",
       "transcript": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在标点处适当停顿并保持前后音色一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
       "normalized_reference": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在标点处适当停顿并保持前后音色一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
       "normalized_hypothesis": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在标点处适当停顿并保持前后音色一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
       "edit_distance": 0,
       "cer": 0.0,
-      "duration_s": 20.9,
-      "rms_dbfs": -17.23714904916744,
-      "clipping_fraction": 3.905868567522703e-05
+      "duration_s": 22.8,
+      "rms_dbfs": -17.778714996688013,
+      "clipping_fraction": 4.574929386959462e-05
     },
-    "benchmarks/results/ming3-q8-t4-20261127T020608Z/audio/run_1.wav": {
+    "benchmarks/results/ming3-q8-t4-20261127T071044Z/audio/run_1.wav": {
       "text": "窗外下起了小雨，桌上的热茶冒着白气，我们现在测试短句语音的清晰度。",
       "sha256": "b2e6ccdd40daa37a260b160f9d3ce230fa967fec9b7c439750ebac9b0acde4f0",
       "transcript": "窗外下起了小雨桌上的热茶冒着白气我们现在测试短句语音的清晰度",
@@ -137,19 +137,19 @@
       "rms_dbfs": -24.580450975461954,
       "clipping_fraction": 0.0
     },
-    "benchmarks/results/ming3-q8-fast-t4-20261127T020647Z/audio/run_1.wav": {
+    "benchmarks/results/ming3-q8-fast-t4-20261127T071123Z/audio/run_1.wav": {
       "text": "窗外下起了小雨，桌上的热茶冒着白气，我们现在测试短句语音的清晰度。",
-      "sha256": "214be7de72f668c3990a1b0b7166aaf6ce78e91ff406503592254b56d96663e2",
+      "sha256": "77c400bc200c889e9d0735271202336a56ec2c743db4b826ed96c63f139e32fc",
       "transcript": "窗外下起了小雨桌上的热茶冒着白气我们现在测试短句语音的清晰度",
       "normalized_reference": "窗外下起了小雨桌上的热茶冒着白气我们现在测试短句语音的清晰度",
       "normalized_hypothesis": "窗外下起了小雨桌上的热茶冒着白气我们现在测试短句语音的清晰度",
       "edit_distance": 0,
       "cer": 0.0,
-      "duration_s": 6.0,
-      "rms_dbfs": -23.991157531005335,
+      "duration_s": 5.8,
+      "rms_dbfs": -22.642525439075378,
       "clipping_fraction": 0.0
     },
-    "benchmarks/results/ming3-q8-t4-20261127T020813Z/audio/run_1.wav": {
+    "benchmarks/results/ming3-q8-t4-20261127T071252Z/audio/run_1.wav": {
       "text": "清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。",
       "sha256": "1f78b8b1ab242efa3aafd44770d6835e176804519c6589fc1d43155384222414",
       "transcript": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在标点处适当停顿并保持前后音色一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
@@ -161,16 +161,16 @@
       "rms_dbfs": -24.458927298861507,
       "clipping_fraction": 0.0
     },
-    "benchmarks/results/ming3-q8-fast-t4-20261127T021012Z/audio/run_1.wav": {
+    "benchmarks/results/ming3-q8-fast-t4-20261127T071452Z/audio/run_1.wav": {
       "text": "清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。",
-      "sha256": "db5caafaaa2e06db9ccc0b1ef29fb0275affe325cc40030d5d70fd6dda2a2975",
+      "sha256": "c24c40c2a1cf9c7b48dd0e53ea9ca446bf96aaf30a50c7fedcadb326c76afa03",
       "transcript": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在标点处适当停顿并保持前后音色一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
       "normalized_reference": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在标点处适当停顿并保持前后音色一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
       "normalized_hypothesis": "清晨的阳光透过窗户落在书桌和地板上我们打开电脑开始测试一段较长的中文语音请用清晰自然平稳的语速读完这些句子在标点处适当停顿并保持前后音色一致测试结束后我们会比较原版与优化版的生成速度和音频内容",
       "edit_distance": 0,
       "cer": 0.0,
-      "duration_s": 18.5,
-      "rms_dbfs": -25.53686580542766,
+      "duration_s": 18.2,
+      "rms_dbfs": -24.784017252772912,
       "clipping_fraction": 0.0
     }
   },
