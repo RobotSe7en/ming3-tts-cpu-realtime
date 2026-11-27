@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ming-3.0-TTS 0.5B — Real-Time x86 CPU Audio Samples</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --blue: #58a6ff;
+    --green: #3fb950;
+    --green-bg: rgba(63, 185, 80, 0.14);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "PingFang SC", sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 36px 20px 64px; }
+  header { border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 28px; }
+  h1 { margin: 0 0 8px; font-size: 1.7rem; letter-spacing: -0.01em; }
+  .subtitle { color: var(--muted); margin: 0 0 14px; font-size: 0.96rem; }
+  .nav { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 8px; font-size: 0.88rem; font-weight: 600;
+    text-decoration: none; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .btn:hover { border-color: var(--blue); }
+  .btn-primary { background: var(--green-bg); border-color: rgba(63,185,80,0.45); color: var(--green); }
+  .btn-primary:hover { background: rgba(63,185,80,0.24); border-color: var(--green); }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 22px; margin-bottom: 22px;
+  }
+  .card-head {
+    display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+    gap: 10px; margin-bottom: 10px;
+  }
+  .card-title { margin: 0; font-size: 1.12rem; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
+  .badge {
+    font-size: 0.8rem; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--muted); background: rgba(255,255,255,0.03);
+  }
+  .badge.good { color: var(--green); border-color: rgba(63,185,80,0.4); background: var(--green-bg); }
+  .quote {
+    margin: 0 0 16px; padding: 10px 14px; border-left: 3px solid var(--border);
+    background: rgba(255,255,255,0.02); color: #b1bac4; font-size: 0.92rem; border-radius: 0 6px 6px 0;
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; }
+  .track {
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px;
+    background: rgba(13,17,23,0.65); transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .track.a { border-left: 4px solid var(--blue); }
+  .track.b { border-left: 4px solid var(--green); }
+  .track.playing.a { border-color: var(--blue); box-shadow: 0 0 0 1px rgba(88,166,255,0.35); }
+  .track.playing.b { border-color: var(--green); box-shadow: 0 0 0 1px rgba(63,185,80,0.35); }
+  .track-label {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+    margin-bottom: 8px; font-size: 0.9rem; font-weight: 600;
+  }
+  .track.a .track-label span:first-child { color: var(--blue); }
+  .track.b .track-label span:first-child { color: var(--green); }
+  .rtf { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.84rem; color: var(--text); }
+  audio { width: 100%; height: 40px; border-radius: 6px; }
+  .track-foot { margin-top: 8px; font-size: 0.8rem; color: var(--muted); display: flex; justify-content: space-between; }
+  .track-foot a { color: var(--muted); text-decoration: none; }
+  .track-foot a:hover { color: var(--text); text-decoration: underline; }
+  footer { margin-top: 32px; color: var(--muted); font-size: 0.85rem; text-align: center; }
+  footer a { color: var(--blue); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Ming-3.0-TTS 0.5B — Real-Time x86 CPU Audio Samples</h1>
+    <p class="subtitle">
+      Intel Core i3-10100 (4 CPU threads, AVX2, No GPU) · Official <code>Q8_0</code> GGUF · Deterministic <code>seed=1895</code> · Plan A (<code>AR=q8</code> BF16 + <code>Flow=q4g128</code> 8-step full CFG=2.0)
+    </p>
+    <div class="nav">
+      <a class="btn" href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime">← GitHub Repository</a>
+      <a class="btn" href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/blob/main/README_ZH.md">中文说明</a>
+      <a class="btn" href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/tag/audio-samples">Download Lossless WAVs &amp; MP4s</a>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="card-head">
+      <h2 class="card-title">1. Built-in Voice 「灵小柔」 — Short (30 chars, 6.0s) · 推荐试听</h2>
+      <button class="btn btn-primary" onclick="playPair('a1','b1')">▶ Play A → B</button>
+    </div>
+    <div class="badges">
+      <span class="badge good">1.98× Faster (RTF 1.92 → 0.97)</span>
+      <span class="badge good">Speaker Cosine 0.9337 ✓</span>
+      <span class="badge good">ASR CER 0.0000</span>
+      <span class="badge">Peak RAM 1.22 GiB</span>
+    </div>
+    <p class="quote">「窗外下起了小雨，桌上的热茶冒着白气，我们现在测试短句语音的清晰度。」</p>
+    <div class="grid">
+      <div class="track a" id="box-a1">
+        <div class="track-label"><span>A · Upstream Baseline (Q8_0)</span><span class="rtf">RTF 1.921</span></div>
+        <audio id="a1" controls preload="metadata" src="audio/01_lingxiaorou_30c_baseline_q8.mp3"></audio>
+        <div class="track-foot"><span>audio.cpp 7d20b414, 10-step CFG=2.0</span><a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_baseline_q8.wav">Lossless WAV ↓</a></div>
+      </div>
+      <div class="track b" id="box-b1">
+        <div class="track-label"><span>B · Plan A Real-Time (AR=q8 BF16 + Q4G128)</span><span class="rtf">RTF 0.972</span></div>
+        <audio id="b1" controls preload="metadata" src="audio/01_lingxiaorou_30c_planA_ar_q8.mp3"></audio>
+        <div class="track-foot"><span>AVX2 Direct Flow, 8-step Sway CFG=2.0</span><a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/01_lingxiaorou_30c_planA_ar_q8.wav">Lossless WAV ↓</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2 class="card-title">2. Built-in Voice 「灵小柔」 — Long Paragraph (107 chars, 17.9s)</h2>
+      <button class="btn btn-primary" onclick="playPair('a2','b2')">▶ Play A → B</button>
+    </div>
+    <div class="badges">
+      <span class="badge good">1.91× Faster (0.98 quiet / 1.12 ABBA)</span>
+      <span class="badge good">Speaker Cosine 0.9383 ✓</span>
+      <span class="badge good">ASR CER 0.0104</span>
+      <span class="badge good">Zero Chunk-2 Artifacts</span>
+    </div>
+    <p class="quote">「清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。」</p>
+    <div class="grid">
+      <div class="track a" id="box-a2">
+        <div class="track-label"><span>A · Upstream Baseline (Q8_0)</span><span class="rtf">RTF 2.141</span></div>
+        <audio id="a2" controls preload="metadata" src="audio/02_lingxiaorou_107c_baseline_q8.mp3"></audio>
+        <div class="track-foot"><span>freeform IP voice · 1.97 GiB RAM</span><a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_baseline_q8.wav">Lossless WAV ↓</a></div>
+      </div>
+      <div class="track b" id="box-b2">
+        <div class="track-label"><span>B · Plan A High-Quality (AR=q8 BF16 + Q4G128)</span><span class="rtf">RTF 1.120</span></div>
+        <audio id="b2" controls preload="metadata" src="audio/02_lingxiaorou_107c_planA_ar_q8.mp3"></audio>
+        <div class="track-foot"><span>freeform IP voice · 1.27 GiB RAM (-35%)</span><a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/02_lingxiaorou_107c_planA_ar_q8.wav">Lossless WAV ↓</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2 class="card-title">3. Long Paragraph — Unconditioned Auto-Chunked (107 chars, 17.7s)</h2>
+      <button class="btn btn-primary" onclick="playPair('a3','b3')">▶ Play A → B</button>
+    </div>
+    <div class="badges">
+      <span class="badge good">2.10× Faster (RTF 2.08 → 0.99)</span>
+      <span class="badge good">Peak RAM -38% (1.98 → 1.23 GiB)</span>
+      <span class="badge good">ASR CER 0.0417 (Base 0.0625)</span>
+    </div>
+    <p class="quote">「清晨的阳光透过窗户，落在书桌和地板上。我们打开电脑，开始测试一段较长的中文语音。请用清晰、自然、平稳的语速读完这些句子，在标点处适当停顿，并保持前后音色一致。测试结束后，我们会比较原版与优化版的生成速度和音频内容。」</p>
+    <div class="grid">
+      <div class="track a" id="box-a3">
+        <div class="track-label"><span>A · Upstream Baseline (Q8_0)</span><span class="rtf">RTF 2.079</span></div>
+        <audio id="a3" controls preload="metadata" src="audio/03_uncond_107c_baseline_q8.mp3"></audio>
+        <div class="track-foot"><span>~46.0s compute · 1.98 GiB RAM</span><a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_baseline_q8.wav">Lossless WAV ↓</a></div>
+      </div>
+      <div class="track b" id="box-b3">
+        <div class="track-label"><span>B · Plan A Real-Time (AR=q8 BF16 + Anchor Reuse)</span><span class="rtf">RTF 0.991</span></div>
+        <audio id="b3" controls preload="metadata" src="audio/03_uncond_107c_planA_ar_q8.mp3"></audio>
+        <div class="track-foot"><span>~17.5s compute · 1.23 GiB RAM</span><a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime/releases/download/audio-samples/03_uncond_107c_planA_ar_q8.wav">Lossless WAV ↓</a></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Built on <a href="https://github.com/0xShug0/audio.cpp">0xShug0/audio.cpp</a> &amp; Ming-3.0-TTS 0.5B ·
+    <a href="https://github.com/RobotSe7en/ming3-tts-cpu-realtime">View source &amp; full ABBA data on GitHub</a>
+  </footer>
+</div>
+
+<script>
+const audios = Array.from(document.querySelectorAll('audio'));
+let seqTimer = null;
+function stopAll(except) {
+  if (seqTimer) { clearTimeout(seqTimer); seqTimer = null; }
+  audios.forEach(a => { if (a !== except) { a.pause(); a.onended = null; } });
+}
+audios.forEach(a => {
+  const box = document.getElementById('box-' + a.id);
+  a.addEventListener('play', () => {
+    stopAll(a);
+    document.querySelectorAll('.track').forEach(el => el.classList.remove('playing'));
+    if (box) box.classList.add('playing');
+  });
+  a.addEventListener('pause', () => { if (box) box.classList.remove('playing'); });
+  a.addEventListener('ended', () => { if (box) box.classList.remove('playing'); });
+});
+function playPair(aId, bId) {
+  const a = document.getElementById(aId);
+  const b = document.getElementById(bId);
+  stopAll(null);
+  a.currentTime = 0; b.currentTime = 0;
+  a.onended = () => { a.onended = null; seqTimer = setTimeout(() => { b.play(); }, 550); };
+  a.play();
+}
+</script>
+</body>
+</html>
