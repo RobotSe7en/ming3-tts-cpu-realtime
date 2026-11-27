@@ -365,19 +365,21 @@ python3 benchmarks/compare_ming_fast.py --fixture zh_paragraph.txt --iterations 
 经过两轮人工实听排查与单变量消融：
 
 1. **第一轮（`AR=q4_0` 导致的电话压缩感）**：在与 Mac Metal 生成结果及原版 Q8_0 的直接试听对比中发现，尽管 Plan B（`ar=q4_0`）的 SenseVoice ASR CER 仅为 `0.0208`，但在 107 字自动分块长文本的第 2 块起出现了明显的金属/电话压缩感。逐一隔离 `reuse_anchor_latent=0`、`VAE=q8`、`Aggregator=q8`、`AR=q8` 后定位根因为 24 层 AR 的 4-bit 量化。
-2. **第二轮（`AR=q8` 强开 `fused_fp32_act=1` 导致的第 2 块机械音）**：在 `灵小柔` 107 字长段落精听对比中又发现，强行给 `AR=q8` 开启 `--fused-fp32-act 1`（移除 AR 主干的 13 处上游 BF16 舍入）仍会在第 2 块后半段触发一段机械音，且在 `Flow=q8` 消融中甚至触发了第 2 块 `stop_head` 提前终止。改为 **`--fused-fp32-act auto`**（AR 保留 `Q8_0` 与上游原版 BF16 舍入，仅对 4-bit VAE 启用融合 FP32）后，全段机械音 100% 消失，`灵小柔` 107 字音色余弦进一步升至 **`0.9295`**，提速 **`1.92×`**，同时常规短句/长段依然稳在 **`RTF 0.86–0.97`**。
+2. **第二轮（`AR=q8` 强开 `fused_fp32_act=1` 导致的第 2 块机械音）**：精听 `灵小柔` 107 字长段落时在第 2 块后半段发现一段机械音。单变量消融确认：`VAE=q8` 仍有完全相同的机械音，`Flow=q8`（保持 `fused=1`）甚至触发了第 2 块 `stop_head` 提前终止；而恢复 AR 13 处上游 BF16 舍入（`--fused-fp32-act auto`，仅 4-bit VAE 走融合 FP32）后，音频核验确认第 2 块机械音完全消失。
 
-### Plan A（最终修正版，`--fused-fp32-act auto`）正式 ABBA 验证（4 线程 / 400% CPUQuota / 6 GiB MemoryMax / 0 swap）
+### Plan A（最终定版：`AR=q8` BF16 + `Flow/Agg=q4g128` 8 步全步 CFG）正式 ABBA 验证
 
-每组按 ABBA 顺序与未修改原版 `ming3_rtf` 对照，各 4 次正式测量，全部确定性 SHA-256 一致、零 swap、SenseVoice ASR CER 全部为 `0.0000`：
+在保持 AR 为完整 `Q8_0` 与全部 13 处 BF16 舍入、8 步每步均执行完整 `CFG=2.0` 的前提下，将 Flow/Aggregator 从 `q4g64` 升级为 `q4g128` 后，单次实测 `灵小柔` 30 字 **`0.8943`**、`灵小柔` 107 字 **`0.9842`**、无参考 107 字 **`0.9242`**，音频核验全段干净无机械音；同轮也验证了尾步 CFG 复用（`cfg_tail_skip=1/2`）会在长文第 2 块引发明显卡顿/机械音而予以淘汰并回滚代码，另确认 `AR=IQ4_NL + BF16`（`0.885` / `0.932`、`1.11 GiB`）可避免 `Q4_0` 金属音。
+
+以下为最终定版 Plan A 正式 4 次 ABBA 结果（4 线程 / 400% CPUQuota / 6 GiB MemoryMax / 0 swap）：
 
 | 文本与音色 | 原版 RTF 中位数 | Plan A RTF 中位数 | 加速比 | Plan A 各次 RTF | 峰值 RSS | Plan A ASR CER | 跨版 CAMPPlus 余弦 | 脱敏汇总 |
 | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: | --- |
-| `zh_short.txt`（无参考短句，4.0s） | 1.6974 | **0.8622** | **1.97×** | 0.8592, 0.8651, 0.9599, 0.8592 | 1.244 GiB | 0.0000 | 0.8417 | [`planA_ar_q8_short_abba.json`](../benchmarks/published_results/planA_ar_q8_short_abba.json) |
-| `zh_paragraph.txt`（无参考 107 字，22.8s） | 1.9161 | **0.9696** | **1.98×** | 0.9656, 0.9624, 0.9847, 0.9737 | 1.312 GiB | 0.0000 | 0.8691 | [`planA_ar_q8_paragraph_abba.json`](../benchmarks/published_results/planA_ar_q8_paragraph_abba.json) |
-| `zh_lingxiaorou_short.txt`（内置 IP「灵小柔」30 字，5.8s） | 1.8368 | **1.0124** | **1.81×** | 1.0007, 1.0196, 1.0696, 1.0052 | 1.243 GiB | 0.0000 | 0.8870 | [`planA_ar_q8_lingxiaorou_short_abba.json`](../benchmarks/published_results/planA_ar_q8_lingxiaorou_short_abba.json) |
-| `zh_paragraph.txt`（内置 IP「灵小柔」107 字 `freeform`，18.2s） | 2.0423 | **1.0643** | **1.92×** | 1.0567, 1.0538, 1.0980, 1.0719 | 1.271 GiB | 0.0000 | **0.9295**（`review_flag=false`） | [`planA_ar_q8_lingxiaorou_paragraph_abba.json`](../benchmarks/published_results/planA_ar_q8_lingxiaorou_paragraph_abba.json) |
+| `zh_short.txt`（无参考短句，3.9s） | 1.7403 | **0.8442** | **2.06×** | 0.8238, 0.8539, 0.8344, 0.8596 | 1.221 GiB | 0.0000 | 0.7853 | [`planA_ar_q8_short_abba.json`](../benchmarks/published_results/planA_ar_q8_short_abba.json) |
+| `zh_paragraph.txt`（无参考 107 字，17.7s） | 2.0794 | **0.9908** | **2.10×** | 1.0149, 1.0318, 0.9668, 0.9512 | 1.233 GiB | 0.0417 | 0.7093 | [`planA_ar_q8_paragraph_abba.json`](../benchmarks/published_results/planA_ar_q8_paragraph_abba.json) |
+| `zh_lingxiaorou_short.txt`（内置 IP「灵小柔」30 字，6.0s） | 1.9209 | **0.9724** | **1.98×** | 0.9808, 0.9684, 0.9570, 0.9764 | 1.221 GiB | 0.0000 | **0.9337**（`review_flag=false`） | [`planA_ar_q8_lingxiaorou_short_abba.json`](../benchmarks/published_results/planA_ar_q8_lingxiaorou_short_abba.json) |
+| `zh_paragraph.txt`（内置 IP「灵小柔」107 字 `freeform`，17.9s） | 2.1406 | 1.1200（空闲单次 `0.984`） | **1.91×** | 1.1672, 1.2344, 1.0674, 1.0728 | 1.271 GiB | 0.0104 | **0.9383**（`review_flag=false`） | [`planA_ar_q8_lingxiaorou_paragraph_abba.json`](../benchmarks/published_results/planA_ar_q8_lingxiaorou_paragraph_abba.json) |
 
-补充回归（单次）：`zh_regression.txt` `1.6744 → 0.9098`（1.84×），`zh_long_regression.txt` `1.8428 → 0.9593`（1.92×）。自动质量筛选完整报告见 [`planA_quality_screening.json`](../benchmarks/published_results/planA_quality_screening.json)。
+补充回归（单次）：`zh_regression.txt` `1.8157 → 0.8430`（2.15×），`zh_long_regression.txt` `2.1915 → 0.9491`（2.31×）。自动质量筛选完整报告见 [`planA_quality_screening.json`](../benchmarks/published_results/planA_quality_screening.json)。
 
-说明：在固定基线 `7d20b414` 中，`model_specs/ming3_tts.json` 尚未在 `voice_id` 枚举中列出中文 IP 名称，因此通过 `template_name=freeform` 传入 `{"IP": "灵小柔"}` 时，`session.cpp` 未设置 `controls["ip"]`，导致 107 字长段落仍在第 1 块后触发 `anchor_voice` 并在后续分块重复预填充 65 个参考 latent 与约 55 个 JSON 控制 token，使 107 字 `灵小柔` RTF 为 `1.0643`（较原版提速 `1.92×` 且音色余弦达 `0.9295`）。
+说明：在固定基线 `7d20b414` 中，`model_specs/ming3_tts.json` 尚未在 `voice_id` 枚举中列出中文 IP 名称，因此通过 `template_name=freeform` 传入 `{"IP": "灵小柔"}` 时，`session.cpp` 未设置 `controls["ip"]`，导致 107 字长段落仍在第 1 块后触发 `anchor_voice` 并在后续分块重复预填充 65 个参考 latent 与约 55 个 JSON 控制 token，使 107 字 `灵小柔` ABBA 中位 RTF 为 `1.1200`（空闲单次实测 `0.9842`，较同期原版 `2.1406` 提速 **`1.91×`**，音色余弦达 **`0.9383`**）。
